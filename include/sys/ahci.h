@@ -1,6 +1,8 @@
 #ifndef _AHCI_H
 #define _AHCI_H
 
+#include <sys/defs.h>
+
 #define HBA_GHC_AE     (1U << 31)
 #define HBA_GHC_IE     (1U << 1)
 #define HBA_GHC_HR     (1U)
