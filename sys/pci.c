@@ -1,34 +1,9 @@
 #include <stdio.h>
 #include <sys/defs.h>
 #include <sys/pci.h>
-
-#define	SATA_SIG_ATA	0x00000101	// SATA drive
-#define	SATA_SIG_ATAPI	0xEB140101	// SATAPI drive
-#define	SATA_SIG_SEMB	0xC33C0101	// Enclosure management bridge
-#define	SATA_SIG_PM	0x96690101	// Port multiplier
-
-#define	AHCI_BASE	0xfebf1000
+#include <sys/memory.h>
  
 int got_it;
-
-void 
-*memset(
-		void *b, 
-		int c, 
-		int len
-	   )
-{
-  	unsigned char *p = b;
-
-  	while(len > 0)
-    {
-      	*p = c;
-      	p++;
-      	len--;
-    }
-
-  	return b;
-}
 
 void
 sysOutLong(
@@ -198,7 +173,7 @@ port_rebase(
 	start_cmd(port);	// Start command engine
 }
  
-static int 
+int 
 check_type(
 		   hba_port_t *port
 		  )
@@ -217,12 +192,7 @@ check_type(
 	{
 		return 0;
 	}
-/*
-	if (det != HBA_PORT_DET_PRESENT)
-		return AHCI_DEV_NULL;
-	if (ipm != HBA_PORT_IPM_ACTIVE)
-		return AHCI_DEV_NULL;
-*/
+
 	switch (port->sig)
 	{
 		case SATA_SIG_ATAPI:

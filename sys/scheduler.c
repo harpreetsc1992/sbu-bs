@@ -1,11 +1,12 @@
-#include <sys/processes.h>
+#include <sys/process.h>
 
+int
 schedule(
 		 struct PCB *curr,
 		 struct PCB *next
 		)
 {
-	old = NULL;
+	struct PCB *old = NULL;
 	
 	/*
 	 * If next process is not ready, do not schedule it
@@ -27,19 +28,36 @@ schedule(
 	next->proc_state = RUNNING;
 	curr = next;
 
-	move_to_end(&old);
+	old->proc_state = READY;
+
+	move_to_end(old);
 
 	dispatch(&old->proc_state, &curr->proc_state);
+
+	return 1;
 }
 
-rr_scheduler(
-			)
+void
+yield(
+	 )
 {
-	schedule();
-	old->proc_state = READY;
+	if (ready_procs > 1)
+	{
+		if (!schedule(processes, processes->next))
+		{
+			kprintf("Couldn't schedule the next process\n");
+		}
 	
+		move_to_next();
+	}
+
+	else
+	{
+		
+	}
+
 	/* 
 	 * DEAD when process is over
 	 */
-	old->proc_state = DEAD; 
+//	old->proc_state = DEAD; 
 }

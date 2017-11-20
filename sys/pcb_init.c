@@ -37,17 +37,6 @@ create_pcb(
 
 		add_to_ready_list(pcb);
 	}
-	else 
-	{
-		pcb = init_pcb((void *)t);
-		processes->next = pcb;
-		if(pcb == NULL)
-		{
-			return 0;
-		}
-		ready_procs ++;
-	
-//		processes = processes.next;
-	}
+
 	return 1;
 }

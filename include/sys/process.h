@@ -7,11 +7,15 @@
 #include <sys/kprintf.h>
 
 #define STACK_SIZE 256 
+#define SCHEDULE_POLICY RR
 
 int p_id, ready_procs, proc_count_in_list;
 
 struct PCB *curr_pcb;
 
+/*
+ * This has the current process
+ */
 struct PCB *processes;
 
 typedef enum 
@@ -33,7 +37,6 @@ struct PCB
 {
 	uint64_t kstack[STACK_SIZE];
 	struct context c_t;
-//	uint64_t rsp;
 	uint64_t pid;
 	proc_state_t proc_state;
 	int exit_status;
@@ -54,7 +57,15 @@ create_pcb(
           );
 
 void
+thread2(
+	   );
+
+void
 thread1(
+	   );
+
+int 
+fn_call(
 	   );
 
 static inline void
@@ -63,6 +74,17 @@ move_to_end(
 		   )
 {
 	struct PCB *head = processes;
+
+	if (pcb->proc_state != READY)
+	{
+		pcb->proc_state = READY;
+	}
+	
+	if (processes == processes->next)
+	{
+		return;
+	}
+
 	while(processes->next != head)
 	{
 		processes = processes->next;
@@ -71,7 +93,7 @@ move_to_end(
 	processes->next = pcb;
 
 	processes = processes->next;
-	processes->next = head->next;
+	processes->next = head;
 
 	head = NULL;	
 }
@@ -89,13 +111,27 @@ add_to_ready_list(
 	}
 	else
 	{
-		
+		processes->next = pcb;
 	}
 }
 
-int 
-fn_call(
-	   );
+static inline void
+move_to_next(
+			)
+{
+	if ((processes->next != NULL) && (processes->next != processes))
+	{
+		processes = processes->next;
+#ifndef SCHEDULE_POLICY
+	ready_procs--;
+#endif
+	}
+	else
+	{
+		kprintf("Error: No processes to move to\n");
+		return;
+	}
+}
 
 #if 0
 struct context 
