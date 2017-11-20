@@ -68,6 +68,16 @@ int
 fn_call(
 	   );
 
+int
+schedule(
+         struct PCB *curr,
+         struct PCB *next
+        );
+
+void
+yield(
+     );
+
 static inline void
 move_to_end(
 			struct PCB *pcb

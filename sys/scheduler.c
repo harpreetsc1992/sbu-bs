@@ -30,9 +30,9 @@ schedule(
 
 	old->proc_state = READY;
 
-	move_to_end(old);
+//	move_to_end(old);
 
-	dispatch(&old->proc_state, &curr->proc_state);
+	dispatch(&old->c_t, &curr->c_t);
 
 	return 1;
 }

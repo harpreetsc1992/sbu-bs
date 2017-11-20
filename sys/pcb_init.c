@@ -26,17 +26,13 @@ create_pcb(
 {
 	struct PCB *pcb = NULL;
 
-	if (processes == NULL)
+	pcb = init_pcb((void *)t);
+	if(pcb == NULL)
 	{
-		pcb = init_pcb((void *)t);
-		if(pcb == NULL)
-		{
-			return 0;
-		}
-		ready_procs ++;
-
-		add_to_ready_list(pcb);
+		return 0;
 	}
+	ready_procs ++;
+	add_to_ready_list(pcb);
 
 	return 1;
 }
