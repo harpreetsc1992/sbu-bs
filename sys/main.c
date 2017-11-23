@@ -6,6 +6,8 @@
 #include <sys/pci.h>
 #include <sys/page_alloc.h>
 #include <sys/process.h>
+#include <sys/idt.h>
+#include <sys/swtch_rings.h>
 
 #define INITIAL_STACK_SIZE 4096
 uint8_t initial_stack[INITIAL_STACK_SIZE]__attribute__((aligned(16)));
@@ -50,6 +52,7 @@ void boot(void)
     :"r"(&initial_stack[INITIAL_STACK_SIZE])
   );
   init_gdt();
+  set_up_idt();
   start(
     (uint32_t*)((char*)(uint64_t)loader_stack[3] + (uint64_t)&kernmem - (uint64_t)&physbase),
     (uint64_t*)&physbase,
@@ -65,6 +68,7 @@ void boot(void)
 //	void *dummy(void *arg);
 //	create_pcb();
 	fn_call();
+	initiate_jmp();
 
   while(1) __asm__ volatile ("hlt");
 }

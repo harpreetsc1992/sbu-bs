@@ -1,5 +1,8 @@
 #include <sys/process.h>
 
+//struct PCB *last;
+//int flag_for_last;
+
 int
 schedule(
 		 struct PCB *curr,
@@ -7,7 +10,6 @@ schedule(
 		)
 {
 	struct PCB *old = NULL;
-	
 	/*
 	 * If next process is not ready, do not schedule it
 	 */
@@ -28,11 +30,22 @@ schedule(
 	next->proc_state = RUNNING;
 	curr = next;
 
-	old->proc_state = READY;
-
+	old->proc_state = DEAD;
+	ready_procs--;
+	proc_count_in_list--;
 //	move_to_end(old);
+//	if (!flag_for_last)
+//	{
+//		last = old;
+//		flag_for_last = 1;
+//	}
 
-	dispatch(&old->c_t, &curr->c_t);
+	dispatch(&old->c_t, &curr->c_t/*, &last*/);
+
+//	if (flag_for_last)
+//	{
+//		last = old;
+//	}
 
 	return 1;
 }
@@ -47,13 +60,15 @@ yield(
 		{
 			kprintf("Couldn't schedule the next process\n");
 		}
+
+		remove_from_list();
 	
 		move_to_next();
 	}
 
 	else
 	{
-		
+		kprintf("No more processes to run");
 	}
 
 	/* 

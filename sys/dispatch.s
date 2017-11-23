@@ -18,8 +18,11 @@ dispatch:
 
 		  	// Switch stacks
 			push %rdi		 	/* save me on my stack */
+    		push %rdx
 			mov %rsp, 0x8(%rdi) 	/* save my stack ptr */
 			mov	0x8(%rsi), %rsp 	/* switch to next stack */
+		  	pop %rdx
+			mov %rdi, (%rdx)
 		  	pop %rdi			/* Update me (rdi) to next task */
 
 		  	// Load new callee-save registers

@@ -1,5 +1,6 @@
 #include <sys/page_alloc.h>
 #include <sys/kprintf.h>
+#include <sys/process.h>
 
 struct page_desc *pdesc;
 struct page_desc *_pdesc;
@@ -63,6 +64,14 @@ get_pml4_offset(
 			   )
 {
 	return ((_virt_base >> 39) & 0x1FF);
+}
+
+void
+pcb_page_free(
+		  	  struct PCB *curr_proc
+		 	 )
+{
+	return;
 }
 
 void*

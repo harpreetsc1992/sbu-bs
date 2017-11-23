@@ -7,12 +7,13 @@
 #include <sys/kprintf.h>
 
 #define STACK_SIZE 256 
-#define SCHEDULE_POLICY RR
+//#define SCHEDULE_POLICY RR
 
 int p_id, ready_procs, proc_count_in_list;
 
 struct PCB *curr_pcb;
 
+int virt_mem_mapped;
 /*
  * This has the current process
  */
@@ -42,6 +43,11 @@ struct PCB
 	int exit_status;
 	struct PCB *next;
 };
+
+void
+pcb_page_free(
+		  	  struct PCB *curr_proc
+		 	 );
 
 void
 dispatch(
@@ -140,6 +146,24 @@ move_to_next(
 	{
 		kprintf("Error: No processes to move to\n");
 		return;
+	}
+}
+
+static inline void
+remove_from_list(
+				)
+{
+	if ((processes != NULL) && (processes->next != NULL))
+	{
+		if (processes->proc_state == DEAD)
+		{
+			pcb_page_free(processes);
+			processes = processes->next;
+		}
+		else
+		{
+			yield();
+		}
 	}
 }
 
