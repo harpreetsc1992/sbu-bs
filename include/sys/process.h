@@ -48,6 +48,16 @@ dispatch(
 		);
 
 struct PCB*
+init_usr_pcb(
+         void (*t)()
+        );
+
+int
+create_usr_pcb(
+               void (*t)()
+              );
+
+struct PCB*
 init_pcb(
          void (*t)()
         );

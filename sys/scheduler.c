@@ -33,7 +33,8 @@ schedule(
 //	move_to_end(old);
 
 	dispatch(&old->c_t, &curr->c_t);
-
+	//fn_call();
+	//thread1();
 	return 1;
 }
 
@@ -41,6 +42,7 @@ void
 yield(
 	 )
 {
+	//fn_call();
 	if (ready_procs > 1)
 	{
 		if (!schedule(processes, processes->next))

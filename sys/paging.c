@@ -7,12 +7,14 @@ int virt_to_phy_flag;
 
 unsigned *freelist;
 
-uint64_t virt_base = 0xffffffff80000000;
-uint64_t init_virt_base = 0xffffffff80000000;
+uint64_t virt_base = VIRT_BASE;
+uint64_t init_virt_base = VIRT_BASE;
 
 uint64_t end_addr;
 
 int counter;
+int flag;
+uint64_t end_base_addr;
 
 uint64_t *global_pdp;
 uint64_t *global_pml4;
@@ -20,17 +22,17 @@ uint64_t *global_pd;
 
 void
 load_cr3(
-		 uint64_t lcr3
-		)
+         uint64_t lcr3
+        )
 {
-	__asm__ __volatile__(
-	"mov %0, %%cr3;"
-	"mov %%cr0, %%rax;"
-	"or $0x80000001, %%eax;"
-	"mov %%rax, %%cr0;" 
-	:: "r"(lcr3));
-	
-	return;
+    __asm__ __volatile__(
+    "mov %0, %%cr3;"
+    "mov %%cr0, %%rax;"
+    "or $0x80000001, %%eax;"
+    "mov %%rax, %%cr0;"
+    :: "r"(lcr3));
+
+    return;
 }
 
 uint64_t
@@ -106,47 +108,46 @@ __get_page(
 
 void
 set_end_addr(
-			 uint64_t *pt[]
+			 uint64_t pt[]
 	   		)
 {
-	volatile uint64_t base_addr = end_addr;
+	if (!flag)
+	{
+		end_base_addr = end_addr;
+		flag = 1;
+	}
+
 	uint64_t *pdp, *pd;
-	uint64_t *_pt;
 	uint64_t *pml = global_pml4;
-	int count = 0;
 	int i = 0;
 
-	uint64_t _virt_base = init_virt_base + base_addr;
+	uint64_t _virt_base = init_virt_base + end_base_addr;
 
 	pdp = global_pdp;
 	pd = global_pd;
 
-	for (; count < NUM_PT; count++)
+	uint64_t pml_off = get_pml4_offset(_virt_base);
+	uint64_t pdp_off = get_pdp_offset(_virt_base);
+	uint64_t pd_off  = get_pd_offset(_virt_base);
+
+	while (i < 512)
 	{
-		_pt = pt[count];
-
-		uint64_t pml_off = get_pml4_offset(_virt_base);
-		uint64_t pdp_off = get_pdp_offset(_virt_base);
-		uint64_t pd_off  = get_pd_offset(_virt_base);
-
-		while (i < 512)
-		{
-			*(pt[count] + get_pt_offset(_virt_base)) = base_addr;
-			*(pt[count] + get_pt_offset(_virt_base)) |= 0x3;
-			base_addr = base_addr + 0x1000;
-			_virt_base += 0x1000;
-			i++;
-		}
-
-		*(pd + pd_off) = (uint64_t)_pt;
-		*(pd + pd_off) |= 0x3;
-	
-		*(pdp + pdp_off) = (uint64_t)pd;
-		*(pdp + pdp_off) |= 0x3;
-		
-		*(pml + pml_off) = (uint64_t)pdp;
-		*(pml + pml_off) |= 0x3;
+		pt[get_pt_offset(_virt_base)] = end_base_addr;
+		pt[get_pt_offset(_virt_base)] |= KERN_PERM_BITS;
+		end_base_addr = end_base_addr + 0x1000;
+		_virt_base += 0x1000;
+		i++;
 	}
+
+	*(pd + pd_off) = (uint64_t)pt;
+	*(pd + pd_off) |= KERN_PERM_BITS;
+
+	*(pdp + pdp_off) = (uint64_t)pd;
+	*(pdp + pdp_off) |= KERN_PERM_BITS;
+	
+	*(pml + pml_off) = (uint64_t)pdp;
+	*(pml + pml_off) |= KERN_PERM_BITS;
+
 	return;
 }
 
@@ -173,19 +174,19 @@ set_initial_addr(
 	while (base_addr <= ((uint64_t)mem_data.physbase - 0x1000))
 	{
 		*(pt + get_pt_offset(_virt_base)) = base_addr;
-		*(pt + get_pt_offset(_virt_base)) |= 0x3;
+		*(pt + get_pt_offset(_virt_base)) |= KERN_PERM_BITS;
 		base_addr = base_addr + 0x1000;
 		_virt_base += 0x1000;
 	}
 
 	*(pd + pd_off) = (uint64_t)_pt;
-	*(pd + pd_off) |= 0x3;
+	*(pd + pd_off) |= KERN_PERM_BITS;
 
 	*(pdp + pdp_off) = (uint64_t)pd;
-	*(pdp + pdp_off) |= 0x3;
+	*(pdp + pdp_off) |= KERN_PERM_BITS;
 		
 	*(pml + pml_off) = (uint64_t)pdp;
-	*(pml + pml_off) |= 0x3;
+	*(pml + pml_off) |= KERN_PERM_BITS;
 }
 
 void*
@@ -207,6 +208,8 @@ set_kpage_tables(
 	int i = 0;
 	int count = 0;
 
+	int count_end = 0;
+
 	pdp = __get_page();
 	pd = __get_page();
 	pt = __get_page();
@@ -227,25 +230,28 @@ set_kpage_tables(
 
 	end_addr = (uint64_t)mem_data.physbase + (512 * 0x1000);
 
-	set_end_addr(pt_max);
+	for (; count_end < NUM_PT; count_end++)
+	{
+		set_end_addr(pt_max[count_end]);
+	}
 
 	while (i < 512)
 	{
 		*(pt + get_pt_offset(_virt_base)) = base_addr;
-		*(pt + get_pt_offset(_virt_base)) |= 0x3;
+		*(pt + get_pt_offset(_virt_base)) |= KERN_PERM_BITS;
 		base_addr = base_addr + 0x1000;
 		_virt_base += 0x1000;
 		i++;
 	}
 
 	*(pd + pd_off) = (uint64_t)_pt;
-	*(pd + pd_off) |= 0x3;
+	*(pd + pd_off) |= KERN_PERM_BITS;
 
 	*(pdp + pdp_off) = (uint64_t)pd;
-	*(pdp + pdp_off) |= 0x3;
+	*(pdp + pdp_off) |= KERN_PERM_BITS;
 		
 	*(pml + pml_off) = (uint64_t)pdp;
-	*(pml + pml_off) |= 0x3;
+	*(pml + pml_off) |= KERN_PERM_BITS;
 	return pml4;
 }
 
