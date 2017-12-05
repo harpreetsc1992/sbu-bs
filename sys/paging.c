@@ -25,6 +25,8 @@ load_cr3(
          uint64_t lcr3
         )
 {
+	pml4_shared = lcr3;
+
     __asm__ __volatile__(
     "mov %0, %%cr3;"
     "mov %%cr0, %%rax;"
@@ -148,6 +150,11 @@ set_end_addr(
 	*(pml + pml_off) = (uint64_t)pdp;
 	*(pml + pml_off) |= KERN_PERM_BITS;
 
+	pml4_shared = (uint64_t) pml;
+	pdp_shared = (uint64_t) pdp;
+	pd_shared = (uint64_t) pd;
+	pt_shared = (uint64_t) __get_page();
+
 	return;
 }
 
@@ -196,7 +203,6 @@ set_kpage_tables(
 {
 	volatile uint64_t base_addr = (uint64_t)mem_data.physbase;
 	uint64_t *pdp, *pd, *pt, *pt_init_addr, *pt_max[NUM_PT];
-	uint64_t *_pt;
 	uint64_t *pml = pml4;
 
 	uint64_t _virt_base = virt_base;
@@ -224,7 +230,7 @@ set_kpage_tables(
 	global_pdp = pdp;
 	global_pd = pd;
 
-	_pt = pt;
+	kpt = pt;
 
 	set_initial_addr(pt_init_addr);
 
@@ -244,7 +250,7 @@ set_kpage_tables(
 		i++;
 	}
 
-	*(pd + pd_off) = (uint64_t)_pt;
+	*(pd + pd_off) = (uint64_t)kpt;
 	*(pd + pd_off) |= KERN_PERM_BITS;
 
 	*(pdp + pdp_off) = (uint64_t)pd;

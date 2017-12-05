@@ -5,10 +5,17 @@
 
 #define PAGE_SIZE 4096
 #define NUMBER_OF_PAGES 24576
-#define NUM_PT 40
+#define NUM_PT 47
 #define VIRT_BASE 0xFFFFFFFF80000000
 #define KERN_PERM_BITS 0x3
 #define USR_PERM_BITS 0x7
+
+uint64_t pml4_shared;
+uint64_t pdp_shared;
+uint64_t pd_shared;
+uint64_t pt_shared;
+
+uint64_t *kpt;
 
 typedef enum
 {

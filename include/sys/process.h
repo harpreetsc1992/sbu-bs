@@ -28,6 +28,15 @@ typedef enum
 	ZOMBIE 
 } proc_state_t;
 
+struct vma_list
+{
+	uint32_t pid;
+	uint32_t ppid;
+	
+};
+
+struct vma_list *vma;
+
 struct context
 {
 	uint64_t rip, rsp;
