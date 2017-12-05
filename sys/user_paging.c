@@ -3,6 +3,7 @@
 #include <sys/idt.h>
 
 uint64_t phys_addr = 0x5000000;
+uint64_t user_addr = 0x0000000000000000;
 uint64_t virt_base_for_user = VIRT_BASE;
 
 void
@@ -14,18 +15,46 @@ tlb_flush(
 //	"mov %%rax, 8(%%rsp)\t\n"
 //	"invlpg (%%rax)\t\n"
 	"mov %0,%%cr3\t\n"
-//	"mov %%cr3,%0\t\n"	
+
     "mov %%cr0, %%rax\t\n"
     "or $0x80000001, %%eax\t\n"
     "mov %%rax, %%cr0\t\n"
 	::"r"(pt)
 );
-/*
-	"mov %0,%%cr3\t\n"
-//	"mov %%cr3,%0\t\n"
-	::"r"(pt)
-*/
+
 	return;	
+}
+
+uint64_t
+get_user_virt_addr(
+				  )
+{
+	uint64_t buf_addr = user_addr;
+	if ((user_addr + 0x1000) < ((uint64_t)mem_data.physbase + virt_base_for_user))
+	{
+		user_addr += 0x1000;
+	}
+	else
+	{
+		user_addr = 0x0;
+	}
+	return buf_addr;
+}
+
+uint64_t
+get_user_phys_addr(
+				  )
+{
+	uint64_t buf_addr = phys_addr;
+	if ((phys_addr + 0x1000) < 0x6000000)
+	{
+		phys_addr += 0x1000;
+	}
+	else
+	{
+		phys_addr = 0x5000000;
+	}
+	return buf_addr;
 }
 
 void
@@ -34,8 +63,9 @@ set_user_pages(
 {
 	__volatile__ uint64_t *pml, *pdp, *pd, *ptu;
 	uint64_t *ptk;
-	uint64_t addr = 0x0000000000000000;
+	uint64_t user_addr = get_user_virt_addr();
 	uint64_t virt;
+	uint64_t phys_addr = get_user_phys_addr();
 	int *ptr;
 	int i = 0;
 
@@ -52,11 +82,11 @@ set_user_pages(
 	ptk = page_alloc();
 	ptu = page_alloc();
 
-	*(pml + 1) = 0x0000000000000000;
-	*(pdp + 1) = 0x0000000000000000;
-	*(pd + 1) = 0x0000000000000000;
-	*(ptk + 1) = 0x0000000000000000;
-	*(ptu + 1) = 0x0000000000000000;
+//	*(pml + 1) = 0x0000000000000000;
+//	*(pdp + 1) = 0x0000000000000000;
+//	*(pd + 1) = 0x0000000000000000;
+//	*(ptk + 1) = 0x0000000000000000;
+//	*(ptu + 1) = 0x0000000000000000;
 
 	virt = virt_base_for_user + (uint64_t)mem_data.physbase;
 
@@ -82,10 +112,10 @@ set_user_pages(
     *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
     *(pml + pml_off) |= KERN_PERM_BITS;
 
-	pml_off = get_pml4_offset(addr);
-	pdp_off = get_pdp_offset(addr);	
-	pd_off  = get_pd_offset(addr);	
-	pt_off  = get_pt_offset(addr);
+	pml_off = get_pml4_offset(user_addr);
+	pdp_off = get_pdp_offset(user_addr);	
+	pd_off  = get_pd_offset(user_addr);	
+	pt_off  = get_pt_offset(user_addr);
 
 	*(ptu + pt_off) = phys_addr;
 	*(ptu + pt_off) |= USR_PERM_BITS;
@@ -109,7 +139,7 @@ set_user_pages(
 	 */
 	tlb_flush((uint64_t)pml - virt_base_for_user);
 
-	ptr = (int *) addr;
+	ptr = (int *) user_addr;
 	*ptr = 0x1;
 
 	return;

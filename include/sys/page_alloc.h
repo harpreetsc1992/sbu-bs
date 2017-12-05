@@ -73,6 +73,19 @@ load_cr3(
          uint64_t lcr3
         );
 
+void
+tlb_flush(
+          uint64_t pt
+         );
+
+uint64_t
+get_user_virt_addr(
+                  );
+
+uint64_t
+get_user_phys_addr(
+                  );
+
 uint64_t
 get_pt_offset(
               uint64_t _virt_base
