@@ -60,6 +60,7 @@ void boot(void)
   ) *temp2 = *temp1;
 
   set_up_idt();
+  init_tarfs();
 //  checkAllBuses();
 //	void *dummy(void *arg);
 //	create_pcb();

@@ -1,6 +1,11 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
+#define NAMEMAX 256
+#define STDIN  0
+#define STDOUT 1
+#define STDERR 2
+
 #define NULL ((void*)0)
 
 typedef unsigned long  uint64_t;
@@ -18,5 +23,26 @@ typedef int64_t ssize_t;
 typedef uint64_t off_t;
 
 typedef uint32_t pid_t;
+
+typedef struct
+{
+    uint64_t inode_num;
+    char filename[NAMEMAX];
+    int perm;
+    int size;
+    char type;
+    int sector_loc[10];
+    int offset;
+    uint64_t address;
+    int is_fs;
+} FILE;
+
+typedef enum
+{
+	RWXU,
+	RWXG,
+	ROTH,
+	XOTH
+}mode_t;
 
 #endif

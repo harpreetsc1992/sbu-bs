@@ -1,30 +1,19 @@
 #include <sys/kprintf.h>
+#include <sys/kern_ops.h>
 #include <stdarg.h>
-#include <sys/defs.h>
-
-short print_to_screen = 1;
-unsigned short *placetextat = (unsigned short *) 0xFFFFFFFF800B8000;
 
 int x, y;
+unsigned short *placetextat = (unsigned short *) VIDEO_ADDR;
+short print_to_screen = 1;
 
-int 
-strlen(
-      	const char *fmt
-      )
-{
-    int i = 0;
-    while(fmt[i++]!='\0');
-    return i;	
-}
-
-size_t
+void
 vasprintf(
           char *buf,
-          const char * fmt,
+          const char *fmt,
           va_list args
          )
 {
-    int len_fmt = strlen(fmt);
+    int len_fmt = (int) kstrlen(fmt);
     int ptr = 0;
     int i = 0, j;
     char *s;
@@ -95,9 +84,8 @@ vasprintf(
     }
 
     buf[ptr] = '\0';
-    return ptr;
 }
-      
+     
 void 
 placechar(
 		   unsigned char c,
@@ -112,6 +100,32 @@ placechar(
 	*where = c | att;
 }
 
+char buf_timer[256] = {-1};
+void
+print_timer(
+			const char *fmt,
+		 	...
+		   )
+{
+	va_list args;
+
+    va_start(args, fmt);
+    vasprintf(buf_timer, fmt, args);
+	va_end(args);
+
+	int x_coord = TIMER_X, y_coord = VERT_BITS;
+	if (print_to_screen)
+    {
+        unsigned char *c = (uint8_t *) buf_timer;
+        while (*c)
+        {
+			placechar(*c, x_coord, y_coord, 0x07);
+			x_coord++;
+			c++;
+		}
+	}
+}
+
 char buf[4096] = {-1};
 
 void
@@ -121,44 +135,123 @@ kprintf(
        )
 {
     va_list args;
-//    char buf[4096] = {-1};
     
     va_start(args, fmt);
-    int len = vasprintf(buf, fmt, args);
-
-    if(len != 0)
-	{
-	}
-	
+    vasprintf(buf, fmt, args);
     va_end(args);
 
-    if(print_to_screen)
+    if (print_to_screen)
     {
     	unsigned char *c = (uint8_t *) buf;
 		while (*c)
 		{
-			if (x == 80) 
+			if (x == HOR_BITS) 
 			{
 				x = 0;
-				y = y + 1;
+				y++;
 			}
-			if (y == 24) 
+			if (y == VERT_BITS) 
 			{
 				y = 0;
 				x = 0;
 			}
 			if (*c == '\n') 
 			{
-				y = y + 1;
+				y++;
 				x = 0;
+			}
+			if (*c == '\b')
+			{
+				if ((x == 0) && (y != 0))
+				{
+					placechar(' ', x, y, 0x07);
+					y--;
+					x = HOR_BITS;
+				}
+				else
+				{
+					placechar(' ', x, y, 0x07);
+					x--;
+				}
 			} 
 			else 
 			{
 				placechar(*c, x, y, 0x07);
-				
-				x = x + 1;
+				x++;
 			}
 			c++;
 		}		     
     }
+}
+
+int 
+putc(
+	 char c
+	)
+{
+	if (x == HOR_BITS)
+    {
+        x = 0;
+        y++;
+    }
+    if (y == VERT_BITS)
+    {
+        y = 0;
+        x = 0;
+    }
+
+    if ((char) c == '\n')
+    {
+        x = 0;
+        y++;
+    }
+    if ((char) c == '\t')
+    {
+        switch ((x + TABSPACE) - HOR_BITS)
+        {
+            case 0:
+                x = 4;
+                y++;
+            break;
+            case 1:
+                x = 3;
+                y++;
+            break;
+            case 2:
+                x = 2;
+                y++;
+            break;
+            case 3:
+                x = 1;
+                y++;
+            break;
+            case 4:
+                x = 0;
+                y++;
+            break;
+            default:
+                x += TABSPACE;	
+         	break;
+        }
+    }
+    if ((char) c == '\b')
+    {
+        if ((x == 0) && (y != 0))
+        {
+            placechar(' ', x, y, 0x07);
+            y--;
+            x = HOR_BITS;
+        }
+        else
+        {
+            placechar(' ', x, y, 0x07);
+            x--;
+        }
+    }
+    else
+    {
+        placechar(c, x, y, 0x07);
+        x++;
+    }
+    return c;
 }

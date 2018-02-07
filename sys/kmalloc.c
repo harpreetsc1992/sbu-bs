@@ -1,15 +1,34 @@
+#include <sys/memory.h>
 /*
 void
 *kmalloc(
-		 unsigned long size
+		 uint64_t sz
 		)
 {
-	void *virt_addr;
-	unsigned long i;
-	virt_addr = 0x0000000000000000;	
-	for (i = 0; i < NUMBER_OF_PAGES; i++)
+	int i = 0;
+	int cntr = 0;
+	int num_pages = (sz / PAGE_SIZE);
+	uint64_t *_page;
+	
+	uint64_t *page = (uint64_t *)page_alloc();
+	cntr++;
+	_page = page;
+
+	i = (sz % PAGE_SIZE);
+
+	while (cntr < num_pages)
 	{
+		_page = (uint64_t *)page_alloc();
+		page + (cntr * PAGE_SIZE/sizeof(uint64_t)) = _page;
+		cntr++;
 	}
-	return virt_addr;
+
+	if (i > 0)
+	{
+		_page = (uint64_t *)page_alloc();
+		page + (cntr * PAGE_SIZE/sizeof(uint64_t)) = _page;
+	}
+
+	return page;
 }
 */

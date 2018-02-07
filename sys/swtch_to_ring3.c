@@ -27,7 +27,7 @@ initiate_jmp(
 			)
 {
 	set_user_pages();
-	create_usr_pcb(tst_usr_fn);
+	create_usr_pcb("bin/sbush");
 	
 	jmp_usrmode();
 	return;

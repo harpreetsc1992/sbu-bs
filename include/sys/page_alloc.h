@@ -2,20 +2,29 @@
 #define _PAGE_ALLOC_H
 
 #include <sys/defs.h>
+#include <sys/kern_ops.h>
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE 0x1000
 #define NUMBER_OF_PAGES 24576
 #define NUM_PT 47
 #define VIRT_BASE 0xFFFFFFFF80000000
 #define KERN_PERM_BITS 0x3
 #define USR_PERM_BITS 0x7
+#define COW_PERM_BITS 0x5
+#define START_PADDR_FOR_USRS 0x5000000
+#define START_VADDR_FOR_USRS 0x0000000000000000
 
-uint64_t pml4_shared;
-uint64_t pdp_shared;
-uint64_t pd_shared;
-uint64_t pt_shared;
+extern uint64_t pml4_shared;
+extern uint64_t pdp_shared;
+extern uint64_t pd_shared;
+extern uint64_t pt_shared;
 
 uint64_t *kpt;
+extern uint64_t usr_pml;
+extern uint64_t usr_pdp;
+extern uint64_t usr_pd;
+extern uint64_t usr_pt;
+extern uint64_t *global_pml4;
 
 typedef enum
 {
@@ -26,14 +35,21 @@ typedef enum
 
 typedef enum
 {
-	IN_USE,
-	FREE
+	FREE,
+	IN_USE
 } pd_status_t;
 
 struct page_desc
 {
 	pd_status_t pd_free:1;
 	struct page_desc *next;
+};
+
+struct user_page
+{
+	pg_perm_t pd_rw;
+	pd_status_t pd_free:1;
+	struct user_page *next;
 };
 
 typedef struct m_data
@@ -80,10 +96,12 @@ tlb_flush(
 
 uint64_t
 get_user_virt_addr(
+				   int mapped
                   );
 
 uint64_t
 get_user_phys_addr(
+				   int mapped
                   );
 
 uint64_t
@@ -118,13 +136,18 @@ void*
 __get_page(
           );
 
-void
+uint64_t*
 set_user_pages(
 			  );
 
+uint64_t *
+get_usr_page(
+             uint32_t sz
+            );
+
 void
 set_page_unused(
-             unsigned long index,
+             	unsigned long index,
                 unsigned cow
                );
 
@@ -155,8 +178,8 @@ set_kernel_pages(
 
 void
 set_pml4(
-		  void *pml4_cr3
-		 );
+		 void *pml4_cr3
+		);
 
 void
 set_pages(
@@ -172,47 +195,18 @@ set_kernel_pages(
 				 void *pml4_cr3
 				);
 
-static inline void
-set_usr_pt(
-		   uint64_t *pt,
-		   uint64_t *pd,
-		   uint64_t *pdp,
-		   uint64_t *pml4,
-		   uint64_t *page_addr,
-		   uint64_t *pt_entry, 
-		   uint64_t *pd_entry, 
-		   uint64_t *pdp_entry, 
-		   uint64_t *pml4_entry
-		  )
-{
-	*pt_entry = (uint64_t)page_addr | 0x7;
-	*pd_entry = (uint64_t)pt | 0x7;
-	*pdp_entry = (uint64_t)pd | 0x7;
-	*pml4_entry = (uint64_t)pdp | 0x7;
-	
-	return;
-}
+uint64_t *
+get_usr_page_for_child(
+                       uint32_t sz
+                      );
 
-static inline void
-traverse_usr_pts(
-				 uint64_t *page_addr
-		  	 	)
-{
-	uint64_t *pd_entry, *pdp_entry, *pt_entry, *pml4_entry;
-	uint64_t *pd, *pdp, *pt, *pml4;
-	pml4 = (uint64_t *)((uint64_t) page_addr & 0xffff000000000000); 
-	pml4_entry = (uint64_t *)((((uint64_t)pml4 >> 39) | get_pml4_offset((uint64_t)page_addr)) << 39);
-	pdp = pml4_entry;
-	pdp_entry = (uint64_t *)((((uint64_t)pdp >> 30) | get_pdp_offset((uint64_t)page_addr)) << 30);
-	pd = pdp_entry;
-	pd_entry = (uint64_t *)((((uint64_t)pd >> 21) | get_pd_offset((uint64_t)page_addr)) << 21);
-	pt = pd_entry;
-	pt_entry = (uint64_t *)((((uint64_t)pt >> 12) | get_pt_offset((uint64_t)page_addr)) << 12);
+uint64_t *
+get_new_page(
+            );
 
-	set_usr_pt(pt, pd, pdp, pml4, page_addr,
-			   pt_entry, pd_entry, pdp_entry, pml4_entry);
-
-	return;
-}
-
+void
+add_user_page(
+              struct user_page *upg,
+              uint8_t perm
+             );
 #endif

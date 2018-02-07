@@ -79,6 +79,11 @@ isr_handler(
             regs_t reg
            );
 
+void
+irq_handler(
+            regs_t reg
+           );
+
 void 
 ivt_set_gate(
              int32_t i,

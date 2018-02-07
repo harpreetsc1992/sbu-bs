@@ -20,6 +20,11 @@ uint64_t *global_pdp;
 uint64_t *global_pml4;
 uint64_t *global_pd;
 
+uint64_t pml4_shared;
+uint64_t pdp_shared;
+uint64_t pd_shared;
+uint64_t pt_shared;
+
 void
 load_cr3(
          uint64_t lcr3
@@ -339,4 +344,11 @@ set_free_list(
 	freelist = (unsigned *)(init_virt_base + (uint64_t)freelist);
 	
 	return;
+}
+
+void
+page_fault_handler(
+				  )
+{
+	
 }

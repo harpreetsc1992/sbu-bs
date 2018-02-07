@@ -1,5 +1,5 @@
-#ifndef _USER_MEMORY_H
-#define _USER_MEMORY_H
+#ifndef MEMORY_H
+#define MEMORY_H
 
 #include <stdio.h>
 #include <sys/defs.h>

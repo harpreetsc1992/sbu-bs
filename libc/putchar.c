@@ -1,7 +1,10 @@
 #include <stdio.h>
+#include <sys/syscall.h>
 
-int putchar(int c)
+int
+putchar(
+		int c
+	   )
 {
-  // write character to stdout
-  return c;
+	return __syscall1(20, c);
 }

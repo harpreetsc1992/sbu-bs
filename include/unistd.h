@@ -3,11 +3,12 @@
 
 #include <sys/defs.h>
 
-int open(const char *pathname, int flags);
+FILE* open(char *file_name);
 int close(int fd);
-ssize_t read(int fd, void *buf, size_t count);
+ssize_t read(FILE* fd, size_t count, char *buf);
 ssize_t write(int fd, const void *buf, size_t count);
 int unlink(const char *pathname);
+void read_dir(uint64_t dir);
 
 int chdir(const char *path);
 char *getcwd(char *buf, size_t size);
@@ -15,13 +16,16 @@ char *getcwd(char *buf, size_t size);
 pid_t fork();
 int execvpe(const char *file, char *const argv[], char *const envp[]);
 pid_t wait(int *status);
-int waitpid(int pid, int *status);
+int waitpid(int pid, int status);
 
-unsigned int sleep(unsigned int seconds);
+uint64_t sleep(uint64_t seconds);
 
 pid_t getpid(void);
 pid_t getppid(void);
 
+void sleepshell(uint64_t ticks);
+
+void ps();
 // OPTIONAL: implement for ``on-disk r/w file system (+10 pts)''
 off_t lseek(int fd, off_t offset, int whence);
 int mkdir(const char *pathname, mode_t mode);

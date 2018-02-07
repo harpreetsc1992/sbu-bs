@@ -2,13 +2,15 @@
 #define _ELF64_H
 
 #define EI_NIDENT 16
+#define ELF_MAGIC 0x3847FFFF
+#define ELF_PROG_LOAD 1
 
 typedef uint64_t Elf64_Addr;
 typedef uint16_t Elf64_Half;
 typedef uint64_t Elf64_Lword;
 typedef uint64_t Elf64_Off;
 typedef uint32_t Elf64_Sword;
-typedef uint64_t Elf64_Sxword
+typedef uint64_t Elf64_Sxword;
 typedef uint32_t Elf64_Word;
 typedef uint64_t Elf64_Xword;
 
@@ -40,4 +42,16 @@ typedef struct {
   Elf64_Xword   p_align;
 } Elf64_Phdr;
 
+typedef struct {
+    uint32_t   sh_name;
+    uint32_t   sh_type;
+    uint64_t   sh_flags;
+    uint64_t   sh_addr;
+    uint64_t   sh_offset;
+    uint64_t   sh_size;
+    uint32_t   sh_link;
+    uint32_t   sh_info;
+    uint64_t   sh_addralign;
+    uint64_t   sh_entsize;
+} Elf64_Shdr;
 #endif
