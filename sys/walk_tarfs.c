@@ -35,9 +35,21 @@ set_dirents(
 	}
 	else
 	{
-		dent[num_dentries].d_parent = &dent[num_dentries - 1];
+		int index = num_dentries - 1;
+		while (index >= 0)
+		{
+        	if (tarfs_fs[index].typeflag == DIRECTORY)
+        	{
+				dent[num_dentries].d_parent = &dent[index];
+				break;
+        	}
+			else
+			{
+				index--;
+			} 
+		}
 	}
-}
+}	
 
 int 
 file_exists(
@@ -119,7 +131,7 @@ get_per_indx_file(
             return 999;
 		}
     }
-    name[++len] = '\0';
+//    name[++len] = '\0';
     while(kstrcmp(name, tarfs_fs[i].name) !=  0)
 	{
         i++;

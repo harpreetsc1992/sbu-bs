@@ -5,7 +5,9 @@
 #include <sys/process.h>
 
 static void
-page_fault_handler(regs_t reg)
+page_fault_handler(
+				   regs_t reg
+				  )
 {
     uint64_t addr;
     struct user_page *upg;
@@ -15,7 +17,11 @@ page_fault_handler(regs_t reg)
             : "=r" (addr)
             );
 
-    if ((addr >= VIRT_BASE) && (addr < (VIRT_BASE + PAGE_SIZE * 512)))
+	uint64_t kernbase = mem_data.physbase;
+	uint64_t kernfree = mem_data.physfree;
+	uint64_t pg_sz     = PAGE_SIZE;
+
+    if ((addr >= kernbase) && (addr < kernfree))
     {
         kprintf("Kernel Address Accessed. Exiting\n");
         kshutdown();

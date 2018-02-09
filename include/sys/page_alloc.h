@@ -12,7 +12,7 @@
 #define USR_PERM_BITS 0x7
 #define COW_PERM_BITS 0x5
 #define START_PADDR_FOR_USRS 0x5000000
-#define START_VADDR_FOR_USRS 0x0000000000000000
+#define START_VADDR_FOR_USRS 0x0
 
 extern uint64_t pml4_shared;
 extern uint64_t pdp_shared;

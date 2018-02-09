@@ -135,7 +135,7 @@ init_usr_pcb(
          	 char *file_name
         	);
 
-int
+uint64_t
 create_usr_pcb(
 			   char *file
               );

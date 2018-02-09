@@ -71,7 +71,7 @@ init_pcb(
 	return pcb;
 }
 
-int
+uint64_t
 create_usr_pcb(
 			   char *file
           	  )
@@ -86,7 +86,7 @@ create_usr_pcb(
     process_count++;
     add_to_ready_list_user(pcb);
 
-    return 1;
+    return (uint64_t)pcb;
 }
 
 int

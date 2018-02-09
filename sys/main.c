@@ -7,6 +7,7 @@
 #include <sys/page_alloc.h>
 #include <sys/process.h>
 #include <sys/idt.h>
+#include <sys/init.h>
 
 #define INITIAL_STACK_SIZE 4096
 
@@ -31,7 +32,6 @@ void start(uint32_t *modulep, void *physbase, void *physfree)
   kprintf("physbase %p\n", (uint64_t)mem_data.physbase);
   kprintf("physfree %p\n", (uint64_t)mem_data.physfree);
   kprintf("tarfs in [%p:%p]\n", &_binary_tarfs_start, &_binary_tarfs_end);
-  set_free_list();
 }
 
 void boot(void)
@@ -53,6 +53,7 @@ void boot(void)
     (uint64_t*)&physbase,
     (uint64_t*)(uint64_t)loader_stack[4]
   );
+  set_free_list();
   for(
     temp1 = "!!!!! start() returned !!!!!", temp2 = (char*)(0xffffffff80000000 + 0xb8000);
     *temp1;
@@ -62,10 +63,9 @@ void boot(void)
   set_up_idt();
   init_tarfs();
 //  checkAllBuses();
-//	void *dummy(void *arg);
-//	create_pcb();
-	fn_call();
-//	yield();
+	create_pcb(idle);
+	create_pcb(init);
+	yield();
 
   while(1) __asm__ volatile ("hlt");
 }

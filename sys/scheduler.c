@@ -1,4 +1,5 @@
 #include <sys/process.h>
+#include <sys/init.h>
 
 int
 schedule(
@@ -43,6 +44,7 @@ yield(
 	 )
 {
 	//fn_call();
+
 	if (ready_procs > 1)
 	{
 		if (!schedule(processes, processes->next))
