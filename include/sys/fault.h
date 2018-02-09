@@ -17,9 +17,8 @@ page_fault_handler(
             : "=r" (addr)
             );
 
-	uint64_t kernbase = mem_data.physbase;
-	uint64_t kernfree = mem_data.physfree;
-	uint64_t pg_sz     = PAGE_SIZE;
+	uint64_t kernbase = (uint64_t)(VIRT_BASE + mem_data.physbase);
+	uint64_t kernfree = (uint64_t)(VIRT_BASE + mem_data.physfree);
 
     if ((addr >= kernbase) && (addr < kernfree))
     {
