@@ -84,14 +84,55 @@ page_alloc(
 		_pdesc = pdesc;
 		virt_to_phy_flag = 1;
 	}
-	pdesc = (struct page_desc *)((uint64_t)_pdesc + 0xffffffff80000000);
+	pdesc = (struct page_desc *)((uint64_t)_pdesc + VIRT_BASE);
 	head = pdesc;
 	pdesc->pd_free = IN_USE;
-	pdesc->next = (struct page_desc *)((uint64_t)_pdesc + 0xffffffff80000000 + 0x1000);
+	pdesc->next = (struct page_desc *)((uint64_t)_pdesc + VIRT_BASE + PAGE_SIZE);
 	pdesc = pdesc->next;
 	_pdesc = _pdesc + 0x100;
 	freelist[counter++] = 0;
 	return head;
+}
+
+void*
+kmalloc(
+		uint64_t sz
+	   )
+{
+	struct page_desc *head, *trav;
+
+	uint32_t pages = sz/PAGE_SIZE;
+	uint32_t modulo = sz % PAGE_SIZE;
+	if (modulo)
+	{
+		pages++;
+	}
+	
+	trav = pdesc;
+	uint32_t count = pages;
+	while (count--)
+	{
+		if (trav->pd_free != FREE)
+		{
+			count = pages;
+			continue;
+		}
+		else
+		{
+			if ((struct page_desc *)((uint64_t)trav->next + VIRT_BASE) != NULL)		trav = (struct page_desc *)((uint64_t)trav->next + VIRT_BASE);
+			else						kprintf("Out of free pages\n No pages left to allocate\n");
+		}
+	}
+
+	head = (struct page_desc *) page_alloc();
+	trav = head;
+	pages--;
+	while (pages--)
+	{
+		trav = page_alloc();
+	}
+
+	return (void *)head;
 }
 
 void*
@@ -344,11 +385,4 @@ set_free_list(
 	freelist = (unsigned *)(init_virt_base + (uint64_t)freelist);
 	
 	return;
-}
-
-void
-page_fault_handler(
-				  )
-{
-	
 }

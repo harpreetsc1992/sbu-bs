@@ -21,6 +21,7 @@ jmp_usrmode(
     "pushf\t\n" 
     "push $0x2B\t\n"
     "push %0\t\n"
+	"sti\t\n"
     "iretq\t\n"
 	:: "r"(function)
 	); 
@@ -30,11 +31,9 @@ void
 initiate_jmp(
 			)
 {
-	create_pcb(init);
+	create_usr_pcb(curr_file);
 	yield();
-//	init();
-//	create_usr_pcb("bin/sbush");
-//	jmp_usrmode();
+
 	return;
 }
 

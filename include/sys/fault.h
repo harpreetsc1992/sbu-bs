@@ -3,6 +3,8 @@
 
 #include <sys/page_alloc.h>
 #include <sys/process.h>
+#include <sys/k_utils.h>
+#include <sys/tarfs.h>
 
 static void
 page_fault_handler(
@@ -12,6 +14,7 @@ page_fault_handler(
     uint64_t addr;
     struct user_page *upg;
     uint8_t seg_fault = 0;
+	uint32_t sz;
     __asm__ __volatile__(
             "movq %%cr2, %0\t\n"
             : "=r" (addr)
@@ -26,20 +29,15 @@ page_fault_handler(
         kshutdown();
     }
 
-    upg = (struct user_page *) addr;
+    upg = (struct user_page *) ROUNDDOWN(addr, PAGE_SIZE);
 
-    if ((upg->pd_rw == READONLY_COW) || (((uint64_t)addr & USR_PERM_BITS) != COW_PERM_BITS))
+	if ((addr & 0x1) == 0x0)
     {
-        uint64_t *new_addr = get_new_page();
-        kmemcpy((void *)new_addr, (void *)addr, kstrlen((char *)addr));
-        new_addr = (uint64_t *)((uint64_t)new_addr | USR_PERM_BITS);
-    }
-    else if (upg->pd_free == FREE)
-    {
-        struct vm_area_struct *vma_ptr = uprocs->procs->mm->mmap;
+        struct vm_area_struct *vma_ptr = curr_upcb->mm->mmap;
         uint64_t start, end;
         while (vma_ptr != NULL)
         {
+			dif_ctxt = 0;
             start = vma_ptr->vm_start;
             end = vma_ptr->vm_end;
             if (addr >= start && addr < end)
@@ -53,8 +51,19 @@ page_fault_handler(
         {
             seg_fault = 1;
         }
+		else
+		{
+			char *tmp = vma_data(&sz);
+			kmemcpy((char *)upg, (void *)tmp, sz);
+		}
     }
-    else
+    else if (((uint64_t)addr & USR_PERM_BITS) != COW_PERM_BITS)
+    {
+        uint64_t *new_addr = get_new_page();
+        kmemcpy((void *)new_addr, (void *)addr, kstrlen((char *)addr));
+        new_addr = (uint64_t *)((uint64_t)new_addr | USR_PERM_BITS);
+    }    
+	else
     {
         seg_fault = 1;
     }
@@ -63,6 +72,7 @@ page_fault_handler(
     {
         kshutdown();
     }
+	
 }
 
 #endif

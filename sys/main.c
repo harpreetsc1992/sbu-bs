@@ -10,6 +10,7 @@
 #include <sys/init.h>
 
 #define INITIAL_STACK_SIZE 4096
+#define VIDEO_MEM 0xB8000
 
 uint8_t initial_stack[INITIAL_STACK_SIZE]__attribute__((aligned(16)));
 uint32_t* loader_stack;
@@ -39,7 +40,7 @@ void boot(void)
   // note: function changes rsp, local stack variables can't be practically used
   register char *temp1, *temp2;
 
-  for(temp2 = (char*)0xb8001; temp2 < (char*)0xb8000+160*25; temp2 += 2) *temp2 = 7 /* white */;
+  for(temp2 = (char*)(VIDEO_MEM+1); temp2 < (char*)VIDEO_MEM+160*25; temp2 += 2) *temp2 = 7 /* white */;
   __asm__ volatile (
     "cli;"
     "movq %%rsp, %0;"
@@ -55,7 +56,7 @@ void boot(void)
   );
   set_free_list();
   for(
-    temp1 = "!!!!! start() returned !!!!!", temp2 = (char*)(0xffffffff80000000 + 0xb8000);
+    temp1 = "!!!!! start() returned !!!!!", temp2 = (char*)(VIRT_BASE + VIDEO_MEM);
     *temp1;
     temp1 += 1, temp2 += 2
   ) *temp2 = *temp1;
@@ -64,8 +65,8 @@ void boot(void)
   init_tarfs();
 //  checkAllBuses();
 	create_pcb(idle);
-	create_pcb(init);
-	yield();
+	create_pcb(init_entry);
+	idle();
 
   while(1) __asm__ volatile ("hlt");
 }

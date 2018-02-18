@@ -64,6 +64,11 @@ get_per_indx_file(
                   char* dir
                  );
 
+char *
+vma_data(
+         uint32_t *sz
+        );
+
 uint64_t
 opendir(
          char *dir

@@ -10,18 +10,25 @@
 #define STACK_SIZE 256 
 #define SCHEDULE_POLICY RR
 #define NUM_PROCS 256
+#define NUM_PCB 32
 
-int p_id, ready_procs, proc_count_in_list;
-int upid;
-uint64_t ready_queue[NUM_PROCS];
-uint16_t process_count;
-uint16_t uproc_count_list;
+extern uint16_t p_id, ready_procs, proc_count_in_list;
+extern uint16_t upid;
+extern uint64_t ready_queue[NUM_PROCS];
+extern uint16_t process_count;
+extern char curr_file[NAMEMAX];
+
+/*
+ * index for current user pcb for ready_queue
+ */
+extern uint16_t idx_pcb;
+
 struct PCB *processes;
-struct uproc *uprocs;
 extern uint32_t child_pid;
 
 /*
- * This has the current process
+ * These have the current kernel threads and 
+ * processes
  */
 struct PCB *curr_pcb;
 struct task_struct *curr_upcb;
@@ -39,12 +46,6 @@ typedef enum
 struct context
 {
 	uint64_t rip, rsp;
-};
-
-struct uproc
-{
-	struct task_struct *procs;
-	struct uproc *next;
 };
 
 struct vm_area_struct
@@ -120,13 +121,6 @@ struct PCB
 };
 
 void
-load_segment(
-             struct task_struct *pcb,
-             char *file,
-             size_t sz
-            );
-
-void
 dispatch(
 		);
 
@@ -178,7 +172,6 @@ malloc_vma(
 
 void
 allocate_regions(
-                 struct task_struct *t,
                  void *va,
                  size_t len
                 );
@@ -242,85 +235,26 @@ void
 kshutdown(
          );
 
-static inline void
+void
 move_to_end(
 			struct PCB *pcb
-		   )
-{
-	struct PCB *head = processes;
+		   );
 
-	if (pcb->proc_state != READY)
-	{
-		pcb->proc_state = READY;
-	}
-	
-	if (processes == processes->next)
-	{
-		return;
-	}
-
-	while(processes->next != head)
-	{
-		processes = processes->next;
-	}
-	
-	processes->next = pcb;
-
-	processes = processes->next;
-	processes/*->next*/ = head;
-
-	head = NULL;	
-}
-
-static inline void
+void
 add_to_ready_list(
                   struct PCB *pcb
-                 )
-{
-	proc_count_in_list++;
-	if (1 == proc_count_in_list)
-	{
-    	processes = pcb;
-    	processes->next = processes;
-	}
-	else
-	{
-		processes->next = pcb;
-	}
-}
+                 );
 
-static inline void
+void
 add_to_ready_list_user(
-					   struct task_struct *pcb
-					  )
-{
-	uproc_count_list++;
-	if (1 == uproc_count_list)
-	{
-		uprocs->procs = pcb;
-		uprocs->next->procs = pcb;
-	}
-	else
-	{
-		uprocs->next->procs = pcb;
-	}
-}
+                       struct task_struct *pcb
+                      );
 
-static inline void
+void
+move_to_next_pcb(
+                );
+
+void
 move_to_next(
-			)
-{
-	if ((processes->next != NULL) && (processes->next != processes))
-	{
-		processes = processes->next;
-#ifndef SCHEDULE_POLICY
-	ready_procs--;
-#endif
-	}
-	else
-	{
-		kprintf("Error: No processes to move to\n");
-		return;
-	}
-}
+			);
 #endif

@@ -40,6 +40,7 @@
 .extern page_fault_handler
 .extern timer_callback
 .extern isr_handler128
+.extern jmp_usrmode
 
 # Load a new IDT
 # parameter 1: address of idtr (%rdi)
@@ -105,7 +106,8 @@ isr_coord:
     mov %rsp, %rdi
     call isr_handler
     POPA
-    add $0x10, %rsp
-    sti
-    iretq
+	jmp jmp_usrmode
+//    add $0x10, %rsp
+//    sti
+//    iretq
 .end

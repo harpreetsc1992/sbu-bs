@@ -11,9 +11,8 @@ init_usr_pcb(
         	)
 {
     struct task_struct *pcb;
-	pcb = (struct task_struct *) get_usr_page(sizeof(struct task_struct *));
-
-	pcb->mm = (struct mm_struct *)(pcb + 1);
+	pcb = (struct task_struct *) kmalloc(sizeof(struct task_struct));
+	pcb->mm = (struct mm_struct *) kmalloc(sizeof(struct mm_struct));//(struct mm_struct *)(pcb + 1);
 	pcb->mm->count = 0;
 	pcb->mm->mmap = NULL;
 
@@ -22,14 +21,14 @@ init_usr_pcb(
 	pcb->state = READY;
 
 	kmemcpy(pcb->pname, file_name, kstrlen((char *)file_name));
-	ready_queue[process_count++] = (uint64_t)pcb;
-
-	pcb->pml4e = (uint64_t)global_pml4;
-	pcb->cr3 = (uint64_t)pml4_shared - VIRT_BASE;
-
-	tlb_flush(pcb->cr3);
+	process_count++;
+	add_to_ready_list_user(pcb);
 
 	pcb->stack = get_usr_page(PAGE_SIZE);
+	dif_ctxt = 0;
+
+	pcb->pml4e = (uint64_t)pml4_shared;
+	pcb->cr3 = (uint64_t)pml4_shared - VIRT_BASE;
 
 	int x = 506, y = 1;
 	while (x >= 492)
@@ -48,7 +47,7 @@ init_usr_pcb(
 
     load_segment(pcb, file_name, 0);
     pcb->kstack[507] = (uint64_t)pcb->entry;
-    tlb_flush(pml4_shared);
+    tlb_flush(pml4_shared - VIRT_BASE);
 
     return pcb;
 }
@@ -83,8 +82,6 @@ create_usr_pcb(
     {
         return 0;
     }
-    process_count++;
-    add_to_ready_list_user(pcb);
 
     return (uint64_t)pcb;
 }

@@ -9,7 +9,7 @@ load_krsp(
 	__asm__(
             "movq %0, %%rsp\t\n"
 			"movq %1, %%cr3\t\n"
-            ::"r"((struct PCB *)processes->c_t.rsp), "b"(global_pml4 - VIRT_BASE)
+            ::"r"((struct PCB *)processes->c_t.rsp), "b"(pml4_shared - VIRT_BASE)
            );
 }
 

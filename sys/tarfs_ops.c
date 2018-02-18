@@ -1,6 +1,43 @@
 #include <sys/tarfs.h>
 #include <sys/k_utils.h>
 
+char *
+vma_data(
+		 uint32_t *sz
+		)
+{
+	int offset = file_exists(curr_file);
+	Elf64_Ehdr *elf = (Elf64_Ehdr *)(&_binary_tarfs_start + offset);
+    Elf64_Phdr *ph;
+    ph = (Elf64_Phdr *)((uint64_t)elf + elf->e_phoff);
+    int i = 0;
+    for (i = 0; i < elf->e_phnum; i++)
+    {
+        ph = (Elf64_Phdr *)(((uint64_t)elf + elf->e_phoff) + i);
+        if (ph->p_type != ELF_PROG_LOAD)
+        {
+            continue;
+        }
+        else
+        {
+            if (ph->p_filesz > ph->p_memsz)
+            {
+                kprintf("Invalid file size\n");
+            }
+
+           kmemcpy((char*) ph->p_vaddr, (void *) ((uint64_t)elf + (uint64_t)ph->p_offset), ph->p_filesz);
+			*sz = ph->p_filesz;
+            if (ph->p_filesz < ph->p_memsz)
+            {
+                memset((char*) ph->p_vaddr + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
+				*sz = ph->p_memsz;
+            }
+			break;
+		}
+	}
+	return (char *)ph->p_vaddr;
+}
+
 uint64_t 
 opendir(
 		char *dir
@@ -78,7 +115,7 @@ openfile(
 	 	 char *file
 		)
 {
-	FILE *fd = (FILE *)page_alloc();//kmalloc(sizeof(FILE));
+	FILE *fd = (FILE *)kmalloc(sizeof(FILE));//kmalloc(sizeof(FILE));
 	tarfs_entry tar_e;
 	int i = 0;
 

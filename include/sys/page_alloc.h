@@ -8,11 +8,12 @@
 #define NUMBER_OF_PAGES 24576
 #define NUM_PT 47
 #define VIRT_BASE 0xFFFFFFFF80000000
-#define KERN_PERM_BITS 0x3
+#define KERN_PERM_BITS 0x2
 #define USR_PERM_BITS 0x7
 #define COW_PERM_BITS 0x5
 #define START_PADDR_FOR_USRS 0x5000000
-#define START_VADDR_FOR_USRS 0x0
+#define START_VADDR_FOR_USRS 0x0000000080000000
+#define TABLE_SIZE 512
 
 extern uint64_t pml4_shared;
 extern uint64_t pdp_shared;
@@ -25,11 +26,18 @@ extern uint64_t usr_pdp;
 extern uint64_t usr_pd;
 extern uint64_t usr_pt;
 extern uint64_t *global_pml4;
+extern uint64_t knl_pt1;
+extern uint64_t knl_pt2;
+extern uint16_t pt_count;
+extern uint16_t pd_count;
+extern uint16_t pdp_count;
+extern uint8_t dif_ctxt;
+extern int pt_flag, pd_flag, pdp_flag;
 
 typedef enum
 {
-    READ_WRITE,
     READ_ONLY,
+    READ_WRITE,
     READONLY_COW
 } pg_perm_t;
 
@@ -128,6 +136,11 @@ void*
 page_alloc(
           );
 
+void *
+kmalloc(
+		uint64_t sz
+	   );
+
 void*
 get_page(
         );
@@ -144,6 +157,13 @@ uint64_t *
 get_usr_page(
              uint32_t sz
             );
+
+void
+allocate_page(
+			  uint64_t *va,
+			  uint64_t *pa,
+			  uint32_t sz
+			 );
 
 void
 set_page_unused(
