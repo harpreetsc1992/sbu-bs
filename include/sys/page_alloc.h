@@ -8,12 +8,20 @@
 #define NUMBER_OF_PAGES 24576
 #define NUM_PT 47
 #define VIRT_BASE 0xFFFFFFFF80000000
-#define KERN_PERM_BITS 0x2
+#define KERN_PERM_BITS 0x3
 #define USR_PERM_BITS 0x7
 #define COW_PERM_BITS 0x5
 #define START_PADDR_FOR_USRS 0x5000000
 #define START_VADDR_FOR_USRS 0x0000000080000000
 #define TABLE_SIZE 512
+#define BASE_ADDR 0x0
+
+#define PT_OFF 12
+#define PD_OFF 21
+#define PDP_OFF 30
+#define PML_OFF 39
+#define PDESC_PG_INC 0x100
+#define PADDING 0x1FF
 
 extern uint64_t pml4_shared;
 extern uint64_t pdp_shared;

@@ -17,7 +17,7 @@ void
 init_entry(
 		  )
 {
-	kmemcpy((char *)curr_file, (void *)"bin/init", kstrlen("bin/init"));
+	kmemcpy((char *)curr_file, (void *)"bin/sbush", kstrlen("bin/sbush"));
 	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(curr_file);
     uint64_t user_entry = pcb->entry;
 	set_tss_rsp((uint64_t *)processes->c_t.rsp);

@@ -47,7 +47,7 @@ get_pt_offset(
 			  uint64_t _virt_base
 		   	 )
 {
-	return ((_virt_base >> 12) & 0x1FF);
+	return ((_virt_base >> PT_OFF) & PADDING);
 }
 
 uint64_t
@@ -55,7 +55,7 @@ get_pd_offset(
 			  uint64_t _virt_base
 		   	 )
 {
-	return ((_virt_base >> 21) & 0x1FF);
+	return ((_virt_base >> PD_OFF) & PADDING);
 }
 
 uint64_t
@@ -63,7 +63,7 @@ get_pdp_offset(
 			   uint64_t _virt_base
 		   	  )
 {
-	return ((_virt_base >> 30) & 0x1FF);
+	return ((_virt_base >> PDP_OFF) & PADDING);
 }
 
 uint64_t
@@ -71,7 +71,7 @@ get_pml4_offset(
 				uint64_t _virt_base
 			   )
 {
-	return ((_virt_base >> 39) & 0x1FF);
+	return ((_virt_base >> PML_OFF) & PADDING);
 }
 
 void*
@@ -89,7 +89,7 @@ page_alloc(
 	pdesc->pd_free = IN_USE;
 	pdesc->next = (struct page_desc *)((uint64_t)_pdesc + VIRT_BASE + PAGE_SIZE);
 	pdesc = pdesc->next;
-	_pdesc = _pdesc + 0x100;
+	_pdesc = _pdesc + PDESC_PG_INC;
 	freelist[counter++] = 0;
 	return head;
 }
@@ -178,12 +178,12 @@ set_end_addr(
 	uint64_t pdp_off = get_pdp_offset(_virt_base);
 	uint64_t pd_off  = get_pd_offset(_virt_base);
 
-	while (i < 512)
+	while (i < TABLE_SIZE)
 	{
 		pt[get_pt_offset(_virt_base)] = end_base_addr;
 		pt[get_pt_offset(_virt_base)] |= KERN_PERM_BITS;
-		end_base_addr = end_base_addr + 0x1000;
-		_virt_base += 0x1000;
+		end_base_addr = end_base_addr + PAGE_SIZE;
+		_virt_base += PAGE_SIZE;
 		i++;
 	}
 
@@ -209,7 +209,7 @@ set_initial_addr(
 				 uint64_t *pt
 				)
 {
-	volatile uint64_t base_addr = 0x00000000;
+	volatile uint64_t base_addr = BASE_ADDR;
 	uint64_t *pdp, *pd;
 	uint64_t *_pt;
 	uint64_t *pml = global_pml4;
@@ -224,12 +224,12 @@ set_initial_addr(
 	pd = global_pd;
 
 	_pt = pt;
-	while (base_addr <= ((uint64_t)mem_data.physbase - 0x1000))
+	while (base_addr <= ((uint64_t)mem_data.physbase - PAGE_SIZE))
 	{
 		*(pt + get_pt_offset(_virt_base)) = base_addr;
 		*(pt + get_pt_offset(_virt_base)) |= KERN_PERM_BITS;
-		base_addr = base_addr + 0x1000;
-		_virt_base += 0x1000;
+		base_addr = base_addr + PAGE_SIZE;
+		_virt_base += PAGE_SIZE;
 	}
 
 	*(pd + pd_off) = (uint64_t)_pt;
@@ -280,19 +280,19 @@ set_kpage_tables(
 
 	set_initial_addr(pt_init_addr);
 
-	end_addr = (uint64_t)mem_data.physbase + (512 * 0x1000);
+	end_addr = (uint64_t)mem_data.physbase + (TABLE_SIZE * PAGE_SIZE);
 
 	for (; count_end < NUM_PT; count_end++)
 	{
 		set_end_addr(pt_max[count_end]);
 	}
 
-	while (i < 512)
+	while (i < TABLE_SIZE)
 	{
 		*(pt + get_pt_offset(_virt_base)) = base_addr;
 		*(pt + get_pt_offset(_virt_base)) |= KERN_PERM_BITS;
-		base_addr = base_addr + 0x1000;
-		_virt_base += 0x1000;
+		base_addr = base_addr + PAGE_SIZE;
+		_virt_base += PAGE_SIZE;
 		i++;
 	}
 
@@ -348,7 +348,7 @@ set_pages(
 	{
 		if(i < (num_pages - 1))
 		{
-			pdesc->next = pdesc + 0x100;
+			pdesc->next = pdesc + PDESC_PG_INC;
 		}
 		else
 		{

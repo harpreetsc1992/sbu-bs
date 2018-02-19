@@ -234,7 +234,6 @@ set_user_pages(
 	 * load user cr3
 	 */
 	tlb_flush((uint64_t)pml - virt_base_for_user);
-//	usr_pml = (uint64_t)pml - virt_base_for_user;
 
 	ptr = (uint64_t *) local_user_addr;
 	pml4_shared = (uint64_t)pml;
@@ -261,7 +260,6 @@ get_usr_page(
 	pg_brk = set_user_pages();
 	hd = pg_brk;
 	upg = (struct user_page *) pg_brk;
-//	tlb_flush((uint64_t)pml4_shared - virt_base_for_user);
 	upg->pd_rw = READ_WRITE;
     upg->pd_free = IN_USE;
 	upg->next = NULL;
@@ -272,7 +270,6 @@ get_usr_page(
 		dif_ctxt = 0;		
 		pg_brk = set_user_pages();
 		upg->next = (struct user_page *) pg_brk;
-//		tlb_flush((uint64_t)pml4_shared - virt_base_for_user);
 //		if (upg->next->pd_free != FREE)
 //		{
 //			continue;
@@ -285,7 +282,6 @@ get_usr_page(
 	}
 	upg = (struct user_page *) hd;
 
-//	dif_ctxt = 1;
 	return hd;
 }
 
@@ -317,7 +313,6 @@ get_usr_page_for_child(
 		dif_ctxt = 0;
 		pg_brk = set_user_pages();
 		upg->next = (struct user_page *) pg_brk;
-//		tlb_flush((uint64_t)pml4_shared - virt_base_for_user);
 //		if (upg->next->pd_free == IN_USE)
 //		{
 //			continue;
