@@ -103,18 +103,20 @@ kmalloc(
 
 	uint32_t pages = sz/PAGE_SIZE;
 	uint32_t modulo = sz % PAGE_SIZE;
-	if (modulo)
+	if (modulo > 0)
 	{
 		pages++;
 	}
 	
 	trav = pdesc;
-	uint32_t count = pages;
-	while (count--)
+//	uint32_t count = pages;
+/*
+	while (count-- > 0)
 	{
 		if (trav->pd_free != FREE)
 		{
 			count = pages;
+			trav = trav->next;
 			continue;
 		}
 		else
@@ -123,15 +125,16 @@ kmalloc(
 			else						kprintf("Out of free pages\n No pages left to allocate\n");
 		}
 	}
-
+*/
 	head = (struct page_desc *) page_alloc();
 	trav = head;
 	pages--;
-	while (pages--)
+	while (pages-- > 0)
 	{
 		trav = page_alloc();
 	}
-
+	if (trav);
+	
 	return (void *)head;
 }
 
@@ -153,6 +156,53 @@ __get_page(
 {
 	return get_page();
 }
+
+/*
+void 
+add_page(
+		 uint64_t addr,
+		 uint8_t perm
+		)
+{
+	uint64_t *pt3 = (uint64_t *) page_alloc();
+	uint64_t virt_end = VIRT_BASE + 3 * TABLE_SIZE * PAGE_SIZE;
+	
+	uint64_t pt_off, pd_off, pdp_off, pml_off;
+	uint64_t *pd, *pdp, *pml;
+
+	pt_off = get_pt_offset(virt_end);
+	pd_off = get_pd_offset(virt_end);
+	pdp_off = get_pdp_offset(virt_end);
+	pml_off = get_pml4_offset(virt_end);
+
+	pd = (uint64_t *)pd_shared;
+	pdp = (uint64_t *)pdp_shared;
+	pml = (uint64_t *)pml4_shared;
+
+	if (addr != START_VADDR_FOR_USRS)
+	{
+		*(pt3 + pt_off) = addr;	
+		*(pt3 + pt_off) |= USR_PERM_BITS;
+		end_base_addr += PAGE_SIZE;
+			
+		*(pd + pd_off) = (uint64_t)pt3;
+		*(pd + pd_off) |= KERN_PERM_BITS;
+
+		*(pdp + pdp_off) = (uint64_t)pd;
+		*(pdp + pdp_off) |= KERN_PERM_BITS;
+	
+		*(pml + pml_off) = (uint64_t)pdp;
+		*(pml + pml_off) |= KERN_PERM_BITS;
+
+		pml4_shared = (uint64_t) pml;
+		pdp_shared = (uint64_t) pdp;
+		pd_shared = (uint64_t) pd;
+	
+		tlb_flush((uint64_t)pml - VIRT_BASE);
+	}
+	return;
+}
+*/
 
 void
 set_end_addr(

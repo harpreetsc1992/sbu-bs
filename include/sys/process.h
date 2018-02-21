@@ -12,12 +12,17 @@
 #define NUM_PROCS 256
 #define NUM_PCB 32
 
+#define PML_SAME_CTXT 0x0
+#define PML_INC       0x0000008000000000
+#define PML_MAX_INC	  0x0000FF8000000000
+
 extern uint16_t p_id, ready_procs, proc_count_in_list;
 extern uint16_t upid;
 extern uint64_t ready_queue[NUM_PROCS];
 extern uint16_t process_count;
 extern char curr_file[NAMEMAX];
 
+extern uint64_t pml_same_ctxt; 
 /*
  * index for current user pcb for ready_queue
  */
@@ -134,6 +139,10 @@ create_usr_pcb(
 			   char *file
               );
 
+uint64_t
+increment_pml(
+             );
+
 struct PCB*
 init_pcb(
          void (*t)()
@@ -230,6 +239,10 @@ syswaitpid(
 void
 dp(
   );
+
+void
+clear_screen(
+			);
 
 void
 kshutdown(

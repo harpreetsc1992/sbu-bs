@@ -55,10 +55,11 @@ allocate_regions(
 
 	uint32_t sz = (uint32_t)((uint64_t)va_end - (uint64_t)va_start);
 	int num = sz/PAGE_SIZE;
+	num += sz % PAGE_SIZE;
 
 	for(int i = 0; i < num; i++)
 	{
-		add_user_page(va + i * PAGE_SIZE, USR_PERM_BITS);
+		memmap((void *)((uint64_t)va + i * PAGE_SIZE), PAGE_SIZE, USR_PERM_BITS, ACCESSED_NOT_PRESENT);
 	}
 }
 
@@ -118,7 +119,7 @@ load_segment(
 		    }
 		}
 		pcb->entry = elf->e_entry;
-		pcb->heap_vma = (struct vm_area_struct *)get_usr_page(PAGE_SIZE);
+		pcb->heap_vma = (struct vm_area_struct *)memmap(NULL, PAGE_SIZE, USR_PERM_BITS, NEW_PAGE);
 		
 		struct vm_area_struct *tmp = pcb->mm->mmap;
 		
@@ -154,15 +155,15 @@ fork_process(
 {
 	struct task_struct *parent_pcb = curr_upcb;
 	struct task_struct *child_pcb = (struct task_struct *)kmalloc(sizeof(struct task_struct));
-	parent_pcb = (struct task_struct *)((uint64_t)parent_pcb & COW_PERM_BITS);
-	child_pcb = (struct task_struct *)((uint64_t)child_pcb & COW_PERM_BITS);
+	parent_pcb = (struct task_struct *)((((uint64_t)parent_pcb >> 3) << 3) | COW_PERM_BITS);
+	child_pcb = (struct task_struct *)((((uint64_t)child_pcb >> 3) << 3) | COW_PERM_BITS);
 	if(NULL == child_pcb)
 	{
 		kprintf("Out of Memory\n");
 		return -1;
 	}
 	
-	child_pcb->mm = (struct mm_struct *)kmalloc(sizeof(struct task_struct));
+	child_pcb->mm = (struct mm_struct *) kmalloc(sizeof(struct task_struct));
 	child_pcb->mm->count = 0;
 	child_pcb->mm->mmap = NULL;
 	
@@ -178,15 +179,14 @@ fork_process(
 	
 	kmemcpy(child_pcb->pname, parent_pcb->pname, kstrlen(parent_pcb->pname));        
 	
-	child_pcb->pml4e = (uint64_t)global_pml4;
+	child_pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, CONTEXT_SWITCH);
 	
-	child_pcb->stack = get_usr_page(PAGE_SIZE);
+	child_pcb->pml4e = (uint64_t)pml4_shared;
 	child_pcb->cr3 = pml4_shared - VIRT_BASE;
-	tlb_flush(child_pcb->cr3);
-	child_pcb->stack=parent_pcb->stack;
+	child_pcb->stack = parent_pcb->stack;
 	
 	child_pcb->kstack[511] = 0x23; //ss
-	child_pcb->kstack[510] = child_pcb->stack[511]; //rsp
+	child_pcb->kstack[510] = (uint64_t)&child_pcb->stack[511]; //rsp
 	
 	child_pcb->kstack[509] = 0x200286; //rflags
 	child_pcb->kstack[508] = 0x2b; //cs
@@ -226,7 +226,7 @@ fork_process(
 	    parent_vm = parent_vm->vm_next;
 	}
 
-	child_pcb->heap_vma = (struct vm_area_struct *)get_usr_page(PAGE_SIZE);
+	child_pcb->heap_vma = (struct vm_area_struct *)memmap(NULL, PAGE_SIZE, USR_PERM_BITS, NEW_PAGE);
 
 	struct vm_area_struct *tmp = child_pcb->mm->mmap;
 	while(tmp->vm_next != NULL)
@@ -361,12 +361,17 @@ exec(
 {
 	/*************** use kmalloc to access it further when u switch the stack  *******/
 	char *tmp_pathname = arg1;
-	//char **tmp_argument = (char **)arg2;
-	//char **tmp_env = (char **)arg3;
 	char pathname[1024];
 	kstrcpy(pathname, tmp_pathname);
 
 	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(pathname);
+	pcb->stack[511] = (uint64_t)**arg2;
+	int tmp = **arg2;
+	int i = 510;
+	while (tmp-- > 0)
+	{
+		pcb->stack[i--] = (uint64_t)*arg3++;
+	}
 	
 	struct task_struct *current_pcb = curr_upcb;
 	
@@ -469,6 +474,17 @@ dp(
 		pcb = (struct task_struct *)ready_queue[i];
 		kprintf("%p\n", pcb);
 	} 
+}
+
+void
+clear_screen(
+			)
+{
+	for (int i = 0; i < HOR_BITS; i++)
+	{
+		for (int j = 0; j <= VERT_BITS; j++)
+		placechar(' ', i, j, 0x7);
+	}
 }
 
 void

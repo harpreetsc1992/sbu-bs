@@ -24,7 +24,7 @@ init_usr_pcb(
 	process_count++;
 	add_to_ready_list_user(pcb);
 
-	pcb->stack = get_usr_page(PAGE_SIZE);
+	pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, CONTEXT_SWITCH);
 	dif_ctxt = 0;
 
 	pcb->pml4e = (uint64_t)pml4_shared;

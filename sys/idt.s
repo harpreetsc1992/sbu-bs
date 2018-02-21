@@ -103,7 +103,7 @@ irq1:
 
 isr_coord:
     PUSHA
-    mov %rsp, %rdi
+//	mov %rsp, %rdi
     call isr_handler
     POPA
 	jmp jmp_usrmode

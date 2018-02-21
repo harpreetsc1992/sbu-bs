@@ -3,6 +3,7 @@
 
 #include <sys/defs.h>
 #include <sys/kern_ops.h>
+#include <sys/k_utils.h>
 
 #define PAGE_SIZE 0x1000
 #define NUMBER_OF_PAGES 24576
@@ -10,7 +11,7 @@
 #define VIRT_BASE 0xFFFFFFFF80000000
 #define KERN_PERM_BITS 0x3
 #define USR_PERM_BITS 0x7
-#define COW_PERM_BITS 0x5
+#define COW_PERM_BITS 0x1
 #define START_PADDR_FOR_USRS 0x5000000
 #define START_VADDR_FOR_USRS 0x0000000080000000
 #define TABLE_SIZE 512
@@ -22,6 +23,18 @@
 #define PML_OFF 39
 #define PDESC_PG_INC 0x100
 #define PADDING 0x1FF
+
+#define ACCESSED_NOT_PRESENT 0
+#define SET_COW_RW 			 1
+#define RW_TO_COW 			 2
+#define NEW_PAGE			 3
+#define CONTEXT_SWITCH		 4 //default in switch statement
+
+// offset flag
+#define NONE				 0
+
+#define NEED_PDP 0x0000007FC0000000
+#define NEED_PD  0x000000003FE00000
 
 extern uint64_t pml4_shared;
 extern uint64_t pdp_shared;
@@ -120,6 +133,30 @@ get_user_phys_addr(
 				   int mapped
                   );
 
+void
+change_permissions(
+                   void *addr,
+                   uint64_t perm
+                  );
+
+void *
+memmap(
+     void *addr,
+     size_t length,
+     uint64_t prot,
+     uint64_t flags
+    );
+
+void
+set_new_kpts(
+            uint64_t *ptk,
+            uint64_t virt,
+            uint64_t *pdp,
+            uint64_t *pd,
+            uint64_t *pml,
+            uint64_t phys_addr
+           );
+
 uint64_t
 get_pt_offset(
               uint64_t _virt_base
@@ -156,6 +193,12 @@ get_page(
 void*
 __get_page(
           );
+
+void
+add_page(
+         uint64_t addr,
+         uint8_t perm
+        );
 
 uint64_t*
 set_user_pages(
@@ -234,7 +277,10 @@ get_new_page(
 
 void
 add_user_page(
-              struct user_page *upg,
-              uint8_t perm
+			  uint64_t virt,
+              uint64_t *pdp,
+              uint64_t *pd,
+              uint64_t *ptu,
+              uint64_t perm              
              );
 #endif

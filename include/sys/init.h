@@ -6,7 +6,8 @@
 
 void
 enter_usermode(
-               uint64_t user_entry
+               uint64_t user_entry,
+			   uint64_t stack
               );
 
 void

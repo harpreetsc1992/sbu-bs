@@ -1,6 +1,7 @@
 #include <sys/page_alloc.h>
 #include <sys/kern_ops.h>
 #include <sys/idt.h>
+#include <sys/process.h>
 
 uint64_t virt_base_for_user = VIRT_BASE;
 
@@ -22,6 +23,8 @@ uint16_t pdp_count;
 uint8_t dif_ctxt = 1;
 
 int pt_flag, pd_flag, pdp_flag;
+
+uint64_t pml_same_ctxt = PML_SAME_CTXT;
 
 void
 tlb_flush(
@@ -86,6 +89,293 @@ get_user_phys_addr(
 	return (buf_addr - PAGE_SIZE);
 }
 
+uint64_t
+increment_pml(
+			 )
+{
+	pml_same_ctxt += PML_INC;
+	if (pml_same_ctxt == PML_MAX_INC)
+	{
+		kprintf("Run out of PML offsets\n PMLs will be flushed\n");
+		pml_same_ctxt = PML_SAME_CTXT;
+	}
+	return pml_same_ctxt;
+}
+
+void
+change_permissions(
+				   void *addr,
+				   uint64_t perm
+				  )
+{
+	uint64_t *pml, *pdp, *pd, *pt;
+	uint64_t virt = (uint64_t) addr;
+	uint64_t pml_off, pdp_off, pd_off, pt_off;
+	pml_off = get_pml4_offset(virt);
+	pdp_off = get_pdp_offset(virt);
+	pd_off  = get_pd_offset(virt);
+	pt_off  = get_pt_offset(virt);
+
+	pml = (uint64_t *)pml4_shared;
+	pdp = (pml + pml_off);
+	pd = (pdp + pdp_off);
+	pt = (pd + pd_off);
+	
+	*(uint64_t *)((*(pt + pt_off) >> 3) << 3) |= perm;
+	usr_pt = (uint64_t) pt;
+
+    *(pd + pd_off) = ((uint64_t)pt - virt_base_for_user);
+    *(uint64_t *)((*(pd + pd_off) >> 3) << 3) |= perm;
+	usr_pd = (uint64_t) pd;
+
+	*(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
+    *(uint64_t *)((*(pdp + pdp_off) >> 3) << 3) |= perm;
+	usr_pdp = (uint64_t) pdp;
+
+	pml = (uint64_t *)pml4_shared;
+    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
+    *(uint64_t *)((*(pml + pml_off) >> 3) << 3) |= perm;
+	pml4_shared = usr_pml = (uint64_t) pml;		
+}
+
+void
+add_user_page(
+			  uint64_t virt,
+			  uint64_t *pdp,
+			  uint64_t *pd,
+			  uint64_t *ptu,
+			  uint64_t perm
+			 )
+{
+	uint64_t pml_off = get_pml4_offset(virt);
+	uint64_t pdp_off = get_pdp_offset(virt);
+	uint64_t pd_off  = get_pd_offset(virt);
+	uint64_t pt_off  = get_pt_offset(virt);
+
+	uint64_t local_phys_addr = get_user_phys_addr(0);
+	uint64_t *pml = (uint64_t *)pml4_shared;
+
+	*(ptu + pt_off) = local_phys_addr;
+	*(ptu + pt_off) |= perm;
+	usr_pt = (uint64_t) ptu;
+
+    *(pd + pd_off) = ((uint64_t)ptu - virt_base_for_user);
+    *(pd + pd_off) |= perm;
+	usr_pd = (uint64_t) pd;
+
+	*(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
+    *(pdp + pdp_off) |= perm;
+	usr_pdp = (uint64_t) pdp;
+
+    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
+    *(pml + pml_off) |= perm;
+	pml4_shared = usr_pml = (uint64_t) pml;
+}
+
+void
+set_new_kpts(
+			uint64_t *ptk,
+			uint64_t virt,
+			uint64_t *pdp,
+			uint64_t *pd,
+			uint64_t *pml,
+			uint64_t phys_addr
+		   )
+{
+	uint64_t pml_off = get_pml4_offset(virt);
+	uint64_t pdp_off = get_pdp_offset(virt);
+	uint64_t pd_off = get_pd_offset(virt);
+	int i = 0;
+
+	while (i < TABLE_SIZE)
+	{
+		*(ptk + get_pt_offset(virt)) = phys_addr;
+		*(ptk + get_pt_offset(virt)) |= KERN_PERM_BITS;
+		virt += PAGE_SIZE;
+		phys_addr += PAGE_SIZE;
+		i++;
+	}
+
+    *(pd + pd_off) = ((uint64_t)ptk - virt_base_for_user);
+    *(pd + pd_off) |= KERN_PERM_BITS;
+
+    pd_shared = (uint64_t) pd;
+
+    *(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
+    *(pdp + pdp_off) |= KERN_PERM_BITS;
+    pdp_shared = (uint64_t) pdp;
+
+    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
+    *(pml + pml_off) |= KERN_PERM_BITS;
+    pml4_shared = (uint64_t) pml;
+}
+
+void *
+memmap(
+	 void *addr, 
+	 size_t length, 
+	 uint64_t prot, 
+	 uint64_t flags
+	)
+{
+	uint64_t *ptk1, *ptk2, *ptk3, *init_ptk, *ptu, *pdp, *pd, *pml;
+	
+	uint64_t base_addr = (uint64_t) mem_data.physbase;
+	uint64_t kern_end = (uint64_t) mem_data.physbase + TABLE_SIZE * PAGE_SIZE;
+	uint64_t kern_extra = (uint64_t) mem_data.physbase + 2 * TABLE_SIZE * PAGE_SIZE;
+	uint64_t init_addr = 0x0;
+	
+	uint64_t virt_base_addr = VIRT_BASE + base_addr;
+	uint64_t virt_kern_end = VIRT_BASE + kern_end;
+	uint64_t virt_kern_extra = VIRT_BASE + kern_extra;
+	uint64_t virt_init_addr = VIRT_BASE;
+
+	int pages = length/PAGE_SIZE;
+	int modulo = length % PAGE_SIZE;
+
+	if (modulo) pages++;
+
+	switch (flags)
+	{
+		case ACCESSED_NOT_PRESENT: /* Page Fault error code 0x0 */
+//			init_ptk = page_alloc();
+//			ptk1 = page_alloc();
+//			ptk2 = page_alloc();
+//			ptk3 = page_alloc();
+//			pdp = page_alloc();
+//			pd = page_alloc();
+//			pml = page_alloc();
+						
+			/*
+			 * Initial addresses VIRT_BASE->VIRT_BASE+physbase
+			 */
+//			set_new_kpts(init_ptk, virt_init_addr, pdp, pd, pml, init_addr);
+			/*
+			 * Kernel addresses VIRT_BASE+physbase->VIRT_BASE+physbase+512*PAGE_SIZE
+			 */
+//			set_new_kpts(ptk1, virt_base_addr, pdp, pd, pml, base_addr);
+			/*
+			 * Above Kernel addresses VIRT_BASE+physbase+512*PAGE_SIZE->VIRT_BASE+physbase+2*512*PAGE_SIZE
+			 */
+//			set_new_kpts(ptk2, virt_kern_end, pdp, pd, pml, kern_end);
+			/*
+			 * Extra Addresses from 0xFFFFFFFF80400000->0xFFFFFFFF80600000
+			 */
+//			set_new_kpts(ptk3, virt_kern_extra, pdp, pd, pml, kern_extra);
+		
+			/*
+			 * New PDP and PD for user pages
+			 */
+			pdp = (uint64_t *)usr_pdp;	//page_alloc();
+			pd = (uint64_t *)usr_pd; 	//page_alloc();
+			ptu = (uint64_t *)usr_pt; 	//page_alloc();
+			while (pages--)
+			{
+				add_user_page((uint64_t)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), pdp, pd, ptu, prot);
+				if (pages) 	addr = (void *)((uint64_t)addr + PAGE_SIZE);
+			}
+		break;
+		case SET_COW_RW:	/* Page fault error code 0x5 */
+			pdp = (uint64_t *)usr_pdp;
+			pd = (uint64_t *)usr_pd;
+			ptu = (uint64_t *)usr_pt;//page_alloc();
+			addr = (void *) get_user_virt_addr(0);
+			add_user_page((uint64_t)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), pdp, pd, ptu, prot);
+		break;
+		case RW_TO_COW:		/* Not a case of page fault. Use during fork */
+			change_permissions((uint64_t *)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), prot);
+		break;
+		case NEW_PAGE:			/* Used when a pcb element asks for a page in user space */
+//			init_ptk = page_alloc();
+//			ptk1 = page_alloc();
+//			ptk2 = page_alloc();
+//			ptk3 = page_alloc();
+//			pdp = page_alloc();
+//			pd = page_alloc();
+//			pml = page_alloc();
+		
+//			addr = (void *)get_user_virt_addr(0);
+			/*
+			 * Initial addresses VIRT_BASE->VIRT_BASE+physbase
+			 */
+//			set_new_kpts(init_ptk, virt_init_addr, pdp, pd, pml, init_addr);
+			/*
+			 * Kernel addresses VIRT_BASE+physbase->VIRT_BASE+physbase+512*PAGE_SIZE
+			 */
+//			set_new_kpts(ptk2, virt_base_addr, pdp, pd, pml, base_addr);
+			/*
+			 * Above Kernel addresses VIRT_BASE+physbase+512*PAGE_SIZE->VIRT_BASE+physbase+2*512*PAGE_SIZE
+			 */
+//			set_new_kpts(ptk1, virt_kern_end, pdp, pd, pml, kern_end);
+			/*
+			 * Extra Addresses from 0xFFFFFFFF80400000->0xFFFFFFFF80600000
+			 */
+//			set_new_kpts(ptk3, virt_kern_extra, pdp, pd, pml, kern_extra);
+		
+			/*
+			 *
+			 */
+			pdp = (uint64_t *)usr_pdp;	//page_alloc();
+			pd = (uint64_t *)usr_pd;	//page_alloc();
+			ptu = (uint64_t *)usr_pt;	//page_alloc();
+			if (!dif_ctxt)
+			{
+				addr = (void *) (get_user_virt_addr(0) + increment_pml());
+			}
+			else
+			{
+				addr = (void *) (get_user_virt_addr(0));
+			}
+			while (pages--)
+			{
+				add_user_page((uint64_t)addr, pdp, pd, ptu, USR_PERM_BITS);
+				if (pages) addr = (void *)((uint64_t)addr + PAGE_SIZE);
+			}
+		break;
+		default: 		//Context Switch
+			init_ptk = page_alloc();
+			ptk1 = page_alloc();
+			ptk2 = page_alloc();
+			ptk3 = page_alloc();
+			ptu = page_alloc();
+			pdp = page_alloc();
+			pd = page_alloc();
+			pml = page_alloc();
+		
+			addr = (void *)get_user_virt_addr(0);
+			/*
+			 * Initial addresses VIRT_BASE->VIRT_BASE+physbase
+			 */
+			set_new_kpts(init_ptk, virt_init_addr, pdp, pd, pml, init_addr);
+			/*
+			 * Kernel addresses VIRT_BASE+physbase->VIRT_BASE+physbase+512*PAGE_SIZE
+			 */
+			set_new_kpts(ptk2, virt_base_addr, pdp, pd, pml, base_addr);
+			/*
+			 * Above Kernel addresses VIRT_BASE+physbase+512*PAGE_SIZE->VIRT_BASE+physbase+2*512*PAGE_SIZE
+			 */
+			set_new_kpts(ptk1, virt_kern_end, pdp, pd, pml, kern_end);
+			/*
+			 * Extra Addresses from 0xFFFFFFFF80400000->0xFFFFFFFF80600000
+			 */
+			set_new_kpts(ptk3, virt_kern_extra, pdp, pd, pml, kern_extra);
+		
+			/*
+			 *
+			 */
+			pdp = (uint64_t *)pdp_shared;	//page_alloc();
+			pd = (uint64_t *)pd_shared; 	//page_alloc();
+			while (pages--)
+			{
+				add_user_page((uint64_t)addr, pdp, pd, ptu, USR_PERM_BITS);
+				if (pages) addr = (void *)((uint64_t)addr + PAGE_SIZE);
+			}
+		break;
+	}
+	tlb_flush((uint64_t)pml4_shared - VIRT_BASE);
+	return addr;
+}
+#if 0
 uint64_t*
 set_user_pages(
 			  )
@@ -348,55 +638,66 @@ add_user_page(
 	uint64_t pt_off  = get_pt_offset((uint64_t)addr);
 
 	uint64_t local_phys_addr = get_user_phys_addr(0);
+	uint64_t base_addr = (uint64_t)mem_data.physbase;
+	uint64_t vid_addr = (uint64_t) 0x0;
 
-	uint64_t *ptu = (uint64_t *) usr_pt;
-	uint64_t *pd = (uint64_t *) usr_pd;
-	uint64_t *pdp = (uint64_t *) usr_pdp;
-	uint64_t *pml = (uint64_t *) pml4_shared;
-
-	if (*(ptu + pt_off) & 0x1)
+	uint64_t *ptu, *pd, *pdp, *pml, *ptk1, *ptk2, *pt_v;
+	if (!dif_ctxt)
 	{
-		ptu = (uint64_t *) page_alloc();
+		ptu = (uint64_t *) usr_pt;
+		pd = (uint64_t *) usr_pd;
+		pdp = (uint64_t *) usr_pdp;
+		pml = (uint64_t *) pml4_shared;
+	}
+	else
+	{
+		ptu = page_alloc();
 		usr_pt = (uint64_t) ptu;
-	}
-
-	if (*(pd + pd_off) & 0x1)
-	{
-		pd = (uint64_t *) page_alloc();
+		pd = page_alloc();
 		usr_pd = (uint64_t) pd;
-		pd_count = 0;
-	}
-
-	if (*(pdp + pdp_off) & 0x1) 
-	{
-		pdp = (uint64_t *) page_alloc();
+		pdp = page_alloc();
 		usr_pdp = (uint64_t) pdp;
-		pdp_count = 0;
+		pml = page_alloc();	
+		pml4_shared = pml;
+		while (i < TABLE_SIZE)
+        {
+            *(ptk1 + get_pt_offset(addr)) = base_addr;
+            *(ptk1 + get_pt_offset(addr)) |= KERN_PERM_BITS;
+            addr += PAGE_SIZE;
+            base_addr += PAGE_SIZE;
+            i++;
+        }
+        knl_pt1 = (uint64_t)ptk1;
+        i = 0;
+        while (i < TABLE_SIZE)
+        {
+            *(ptk2 + get_pt_offset(addr)) = base_addr;
+            *(ptk2 + get_pt_offset(addr)) |= KERN_PERM_BITS;
+            addr += PAGE_SIZE;
+            base_addr += PAGE_SIZE;
+            i++;
+        }
+        knl_pt2 = (uint64_t)ptk2;
+	 	i = 0;
+        while (i < TABLE_SIZE)
+        {
+            *(ptk3 + get_pt_offset(addr)) = vid_addr;
+            *(ptk3 + get_pt_offset(addr)) |= KERN_PERM_BITS;
+            addr += PAGE_SIZE;
+            vid_addr += PAGE_SIZE;
+            i++;
+        }
+        knl_pt2 = (uint64_t)ptk2;	
 	}
 
 	*(ptu + pt_off) = (uint64_t) local_phys_addr;
 	*(ptu + pt_off) |= perm;
 
-   	if (pd_count >= TABLE_SIZE)
-	{
-		pd_flag = 1;
-		pd = page_alloc();
-		pd_count = 0;
-	}
-
     *(pd + pd_off) = ((uint64_t)ptu - virt_base_for_user);
     *(pd + pd_off) |= perm;
-	pd_count++;
 
-   	if (pdp_count >= TABLE_SIZE)
-	{
-		pdp_flag = 1;
-		pdp = page_alloc();
-		pdp_count = 0;
-	}
     *(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
     *(pdp + pdp_off) |= perm;
-	pdp_count++;
 
     *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
     *(pml + pml_off) |= perm;
@@ -404,6 +705,42 @@ add_user_page(
 	upg->pd_rw = READ_WRITE;
    	upg->pd_free = IN_USE;
 	upg->next = NULL;
+}
+
+void
+set_user_perm(
+			  uint64_t addr
+			 )
+{
+	struct user_page *upg = (struct user_page *) addr;
+	
+	uint64_t *pt = (uint64_t *)page_alloc();
+	uint64_t *pd = (uint64_t *)usr_pd;
+	uint64_t *pdp = (uint64_t *)usr_pdp;
+	uint64_t *pml = (uint64_t *)pml4_shared;
+	
+	uint64_t pml_off = get_pml4_offset((uint64_t)addr);
+	uint64_t pdp_off = get_pdp_offset((uint64_t)addr);	
+	uint64_t pd_off  = get_pd_offset((uint64_t)addr);	
+	uint64_t pt_off  = get_pt_offset((uint64_t)addr);
+
+	uint64_t phys_addr = get_user_phys_addr(0); 
+
+	*(pt + pt_off) = phys_addr;
+	*(ptu + pt_off) |= USR_PERM_BITS;
+
+    *(pd + pd_off) = ((uint64_t)ptu - virt_base_for_user);
+    *(pd + pd_off) |= USR_PERM_BITS;
+
+    *(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
+    *(pdp + pdp_off) |= USR_PERM_BITS;
+
+    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
+    *(pml + pml_off) |= USR_PERM_BITS;
+	tlb_flush((uint64_t)pml - virt_base_for_user);
+	upg->pd_rw = READ_WRITE;
+   	upg->pd_free = IN_USE;
+	upg->next = NULL;	
 }
 /*
 void
@@ -489,3 +826,4 @@ allocate_page(
 	return hd;
 }
 */
+#endif
