@@ -13,9 +13,6 @@ page_fault_handler(
 {
     uint64_t addr;
 	uint64_t error_no = reg.err_no; 
-//    struct user_page *upg;
-//    uint8_t seg_fault = 0;
-//	uint32_t sz;
     __asm__ __volatile__(
             "movq %%cr2, %0\t\n"
             : "=r" (addr)
@@ -24,13 +21,16 @@ page_fault_handler(
 	uint64_t kernbase = (uint64_t)(VIRT_BASE + mem_data.physbase);
 	uint64_t kernfree = (uint64_t)(VIRT_BASE + mem_data.physfree);
 
-//    upg = (struct user_page *) ROUNDDOWN(addr, PAGE_SIZE);
-
     if ((addr >= kernbase) && (addr < kernfree))
     {
         kprintf("Kernel Address Accessed. Exiting\n");
         kshutdown();
     }
+
+	if (addr > VIRT_BASE && error_no == 0x7)
+	{
+//		set_kernel_page_user(addr);
+	}
 
 	else if(error_no & 0x1)
 	{	

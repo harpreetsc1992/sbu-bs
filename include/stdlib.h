@@ -3,6 +3,8 @@
 
 #include <sys/defs.h>
 
+#define ARR_SIZE 512
+
 int main(int argc, char *argv[], char *envp[]);
 int exit(int status);
 

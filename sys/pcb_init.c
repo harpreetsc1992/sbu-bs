@@ -12,7 +12,7 @@ init_usr_pcb(
 {
     struct task_struct *pcb;
 	pcb = (struct task_struct *) kmalloc(sizeof(struct task_struct));
-	pcb->mm = (struct mm_struct *) kmalloc(sizeof(struct mm_struct));//(struct mm_struct *)(pcb + 1);
+	pcb->mm = (struct mm_struct *) kmalloc(sizeof(struct mm_struct));
 	pcb->mm->count = 0;
 	pcb->mm->mmap = NULL;
 
@@ -24,7 +24,7 @@ init_usr_pcb(
 	process_count++;
 	add_to_ready_list_user(pcb);
 
-	pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, CONTEXT_SWITCH);
+	pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, NEW_PAGE);
 	dif_ctxt = 0;
 
 	pcb->pml4e = (uint64_t)pml4_shared;
@@ -47,6 +47,7 @@ init_usr_pcb(
 
     load_segment(pcb, file_name, 0);
     pcb->kstack[507] = (uint64_t)pcb->entry;
+	
     tlb_flush(pml4_shared - VIRT_BASE);
 
     return pcb;

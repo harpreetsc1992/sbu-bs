@@ -103,42 +103,6 @@ increment_pml(
 }
 
 void
-change_permissions(
-				   void *addr,
-				   uint64_t perm
-				  )
-{
-	uint64_t *pml, *pdp, *pd, *pt;
-	uint64_t virt = (uint64_t) addr;
-	uint64_t pml_off, pdp_off, pd_off, pt_off;
-	pml_off = get_pml4_offset(virt);
-	pdp_off = get_pdp_offset(virt);
-	pd_off  = get_pd_offset(virt);
-	pt_off  = get_pt_offset(virt);
-
-	pml = (uint64_t *)pml4_shared;
-	pdp = (pml + pml_off);
-	pd = (pdp + pdp_off);
-	pt = (pd + pd_off);
-	
-	*(uint64_t *)((*(pt + pt_off) >> 3) << 3) |= perm;
-	usr_pt = (uint64_t) pt;
-
-    *(pd + pd_off) = ((uint64_t)pt - virt_base_for_user);
-    *(uint64_t *)((*(pd + pd_off) >> 3) << 3) |= perm;
-	usr_pd = (uint64_t) pd;
-
-	*(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
-    *(uint64_t *)((*(pdp + pdp_off) >> 3) << 3) |= perm;
-	usr_pdp = (uint64_t) pdp;
-
-	pml = (uint64_t *)pml4_shared;
-    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
-    *(uint64_t *)((*(pml + pml_off) >> 3) << 3) |= perm;
-	pml4_shared = usr_pml = (uint64_t) pml;		
-}
-
-void
 add_user_page(
 			  uint64_t virt,
 			  uint64_t *pdp,
@@ -211,6 +175,90 @@ set_new_kpts(
 }
 
 void *
+get_pt(
+	   uint64_t addr
+	  )
+{
+	if ((*((uint64_t *)usr_pd + get_pd_offset(addr)) && 0x1) == 0x1)
+	{
+		return (void *)(*((uint64_t *)usr_pd + get_pd_offset(addr)) + VIRT_BASE);
+	}
+	else
+	{
+		void *page = (void *) page_alloc();
+		return page;
+	}
+}
+
+void *
+get_pd(
+	   uint64_t addr
+	  )
+{
+	if ((*((uint64_t *)usr_pdp + get_pdp_offset(addr)) && 0x1) == 0x1)
+	{
+		return (void *)(*((uint64_t *)usr_pdp + get_pdp_offset(addr)) + VIRT_BASE);
+	}
+	else
+	{		
+		void *page = (void *) page_alloc();
+		return page;
+	}
+}
+
+void *
+get_pdp(
+		 uint64_t addr
+		)
+{		
+	if ((*((uint64_t *)pml4_shared + get_pml4_offset(addr)) && 0x1) == 0x1)
+	{
+		return (void *)(*((uint64_t *)pml4_shared + get_pml4_offset(addr)) + VIRT_BASE);
+	}
+	else
+	{
+		void *page = (void *) page_alloc();
+		return page;
+	}
+}
+
+void
+change_permissions(
+				   void *addr,
+				   uint64_t perm
+				  )
+{
+	uint64_t *pml, *pdp, *pd, *pt;
+	uint64_t virt = (uint64_t) addr;
+	uint64_t pml_off, pdp_off, pd_off, pt_off;
+	pml_off = get_pml4_offset(virt);
+	pdp_off = get_pdp_offset(virt);
+	pd_off  = get_pd_offset(virt);
+	pt_off  = get_pt_offset(virt);
+
+	pml = (uint64_t *)pml4_shared;
+	pdp = (pml + pml_off);
+	pd = (pdp + pdp_off);
+	pt = (pd + pd_off);
+	
+	*(uint64_t *)((*(pt + pt_off) >> 3) << 3) |= perm;
+	usr_pt = (uint64_t) pt;
+
+    *(pd + pd_off) = ((uint64_t)pt - virt_base_for_user);
+    *(uint64_t *)((*(pd + pd_off) >> 3) << 3) |= perm;
+	usr_pd = (uint64_t) pd;
+
+	*(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
+    *(uint64_t *)((*(pdp + pdp_off) >> 3) << 3) |= perm;
+	usr_pdp = (uint64_t) pdp;
+
+	pml = (uint64_t *)pml4_shared;
+    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
+    *(uint64_t *)((*(pml + pml_off) >> 3) << 3) |= perm;
+	pml4_shared = usr_pml = (uint64_t) pml;		
+}
+
+void *
 memmap(
 	 void *addr, 
 	 size_t length, 
@@ -218,7 +266,7 @@ memmap(
 	 uint64_t flags
 	)
 {
-	uint64_t *ptk1, *ptk2, *ptk3, *init_ptk, *ptu, *pdp, *pd, *pml;
+	uint64_t *ptkern, *ptk1, *ptk2, *init_ptk, *ptu, *pdp, *pd, *pml;
 	
 	uint64_t base_addr = (uint64_t) mem_data.physbase;
 	uint64_t kern_end = (uint64_t) mem_data.physbase + TABLE_SIZE * PAGE_SIZE;
@@ -238,37 +286,16 @@ memmap(
 	switch (flags)
 	{
 		case ACCESSED_NOT_PRESENT: /* Page Fault error code 0x0 */
-//			init_ptk = page_alloc();
-//			ptk1 = page_alloc();
-//			ptk2 = page_alloc();
-//			ptk3 = page_alloc();
-//			pdp = page_alloc();
-//			pd = page_alloc();
-//			pml = page_alloc();
-						
-			/*
-			 * Initial addresses VIRT_BASE->VIRT_BASE+physbase
-			 */
-//			set_new_kpts(init_ptk, virt_init_addr, pdp, pd, pml, init_addr);
-			/*
-			 * Kernel addresses VIRT_BASE+physbase->VIRT_BASE+physbase+512*PAGE_SIZE
-			 */
-//			set_new_kpts(ptk1, virt_base_addr, pdp, pd, pml, base_addr);
-			/*
-			 * Above Kernel addresses VIRT_BASE+physbase+512*PAGE_SIZE->VIRT_BASE+physbase+2*512*PAGE_SIZE
-			 */
-//			set_new_kpts(ptk2, virt_kern_end, pdp, pd, pml, kern_end);
-			/*
-			 * Extra Addresses from 0xFFFFFFFF80400000->0xFFFFFFFF80600000
-			 */
-//			set_new_kpts(ptk3, virt_kern_extra, pdp, pd, pml, kern_extra);
-		
 			/*
 			 * New PDP and PD for user pages
 			 */
-			pdp = (uint64_t *)usr_pdp;	//page_alloc();
-			pd = (uint64_t *)usr_pd; 	//page_alloc();
-			ptu = (uint64_t *)usr_pt; 	//page_alloc();
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr), PAGE_SIZE);
+			usr_pdp = (uint64_t)pdp;
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr), PAGE_SIZE);
+			usr_pd = (uint64_t)pd;
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr), PAGE_SIZE);
+			usr_pt = (uint64_t)ptu;
+			
 			while (pages--)
 			{
 				add_user_page((uint64_t)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), pdp, pd, ptu, prot);
@@ -276,48 +303,23 @@ memmap(
 			}
 		break;
 		case SET_COW_RW:	/* Page fault error code 0x5 */
-			pdp = (uint64_t *)usr_pdp;
-			pd = (uint64_t *)usr_pd;
-			ptu = (uint64_t *)usr_pt;//page_alloc();
 			addr = (void *) get_user_virt_addr(0);
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr), PAGE_SIZE);
+			usr_pdp = (uint64_t)pdp;
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr), PAGE_SIZE);
+			usr_pd = (uint64_t)pd;
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr), PAGE_SIZE);
+			usr_pt = (uint64_t)ptu;
+
 			add_user_page((uint64_t)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), pdp, pd, ptu, prot);
 		break;
 		case RW_TO_COW:		/* Not a case of page fault. Use during fork */
 			change_permissions((uint64_t *)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), prot);
 		break;
 		case NEW_PAGE:			/* Used when a pcb element asks for a page in user space */
-//			init_ptk = page_alloc();
-//			ptk1 = page_alloc();
-//			ptk2 = page_alloc();
-//			ptk3 = page_alloc();
-//			pdp = page_alloc();
-//			pd = page_alloc();
-//			pml = page_alloc();
-		
-//			addr = (void *)get_user_virt_addr(0);
 			/*
-			 * Initial addresses VIRT_BASE->VIRT_BASE+physbase
+			 * Traverse Page Tables
 			 */
-//			set_new_kpts(init_ptk, virt_init_addr, pdp, pd, pml, init_addr);
-			/*
-			 * Kernel addresses VIRT_BASE+physbase->VIRT_BASE+physbase+512*PAGE_SIZE
-			 */
-//			set_new_kpts(ptk2, virt_base_addr, pdp, pd, pml, base_addr);
-			/*
-			 * Above Kernel addresses VIRT_BASE+physbase+512*PAGE_SIZE->VIRT_BASE+physbase+2*512*PAGE_SIZE
-			 */
-//			set_new_kpts(ptk1, virt_kern_end, pdp, pd, pml, kern_end);
-			/*
-			 * Extra Addresses from 0xFFFFFFFF80400000->0xFFFFFFFF80600000
-			 */
-//			set_new_kpts(ptk3, virt_kern_extra, pdp, pd, pml, kern_extra);
-		
-			/*
-			 *
-			 */
-			pdp = (uint64_t *)usr_pdp;	//page_alloc();
-			pd = (uint64_t *)usr_pd;	//page_alloc();
-			ptu = (uint64_t *)usr_pt;	//page_alloc();
 			if (!dif_ctxt)
 			{
 				addr = (void *) (get_user_virt_addr(0) + increment_pml());
@@ -326,6 +328,12 @@ memmap(
 			{
 				addr = (void *) (get_user_virt_addr(0));
 			}
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr), PAGE_SIZE);
+			usr_pdp = (uint64_t)pdp;
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr), PAGE_SIZE);
+			usr_pd = (uint64_t)pd;
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr), PAGE_SIZE);
+			usr_pt = (uint64_t)ptu;
 			while (pages--)
 			{
 				add_user_page((uint64_t)addr, pdp, pd, ptu, USR_PERM_BITS);
@@ -334,12 +342,12 @@ memmap(
 		break;
 		default: 		//Context Switch
 			init_ptk = page_alloc();
+			ptkern = page_alloc();
 			ptk1 = page_alloc();
 			ptk2 = page_alloc();
-			ptk3 = page_alloc();
 			ptu = page_alloc();
-			pdp = page_alloc();
 			pd = page_alloc();
+			pdp = page_alloc();
 			pml = page_alloc();
 		
 			addr = (void *)get_user_virt_addr(0);
@@ -350,7 +358,7 @@ memmap(
 			/*
 			 * Kernel addresses VIRT_BASE+physbase->VIRT_BASE+physbase+512*PAGE_SIZE
 			 */
-			set_new_kpts(ptk2, virt_base_addr, pdp, pd, pml, base_addr);
+			set_new_kpts(ptkern, virt_base_addr, pdp, pd, pml, base_addr);
 			/*
 			 * Above Kernel addresses VIRT_BASE+physbase+512*PAGE_SIZE->VIRT_BASE+physbase+2*512*PAGE_SIZE
 			 */
@@ -358,13 +366,11 @@ memmap(
 			/*
 			 * Extra Addresses from 0xFFFFFFFF80400000->0xFFFFFFFF80600000
 			 */
-			set_new_kpts(ptk3, virt_kern_extra, pdp, pd, pml, kern_extra);
+			set_new_kpts(ptk2, virt_kern_extra, pdp, pd, pml, kern_extra);
 		
 			/*
-			 *
+			 * User page
 			 */
-			pdp = (uint64_t *)pdp_shared;	//page_alloc();
-			pd = (uint64_t *)pd_shared; 	//page_alloc();
 			while (pages--)
 			{
 				add_user_page((uint64_t)addr, pdp, pd, ptu, USR_PERM_BITS);

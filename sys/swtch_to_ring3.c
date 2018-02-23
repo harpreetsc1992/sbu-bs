@@ -14,7 +14,7 @@ jmp_usrmode(
 
    __asm__ volatile (
 	"cli\t\n"
-	"push %1\t\n" 
+	"mov %1, %%rbx\t\n" 
 	"mov $0x23, %%rax\t\n"
     "mov %%rax, %%ds\t\n" 
    	"mov %%rax, %%es\t\n" 

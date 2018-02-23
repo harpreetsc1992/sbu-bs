@@ -75,7 +75,6 @@ isr10:
     jmp isr_coord
 
 isr14:
-	PUSHA
 	cli
     pushq $14
     jmp isr_coord
@@ -99,7 +98,8 @@ irq1:
 	PUSHA
 	push $0x0
 	push $0x21
-	jmp isr_coord
+	call isr_handler
+//	jmp isr_coord
 
 isr_coord:
     PUSHA

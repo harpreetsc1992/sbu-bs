@@ -485,6 +485,7 @@ clear_screen(
 		for (int j = 0; j <= VERT_BITS; j++)
 		placechar(' ', i, j, 0x7);
 	}
+	placechar(' ', 0, 0, 0x7);
 }
 
 void

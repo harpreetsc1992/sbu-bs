@@ -1,5 +1,6 @@
 #include <sys/page_alloc.h>
 #include <sys/kprintf.h>
+#include <sys/memory.h>
 
 struct page_desc *pdesc;
 struct page_desc *_pdesc;
@@ -91,6 +92,7 @@ page_alloc(
 	pdesc = pdesc->next;
 	_pdesc = _pdesc + PDESC_PG_INC;
 	freelist[counter++] = 0;
+	memset(head, 0, PAGE_SIZE);
 	return head;
 }
 
@@ -432,6 +434,10 @@ set_free_list(
 
 	freelist = address;
 	
+	pml4_shared = pml4_shared + VIRT_BASE;
+	pdp_shared = pdp_shared + VIRT_BASE;
+	pd_shared = pd_shared + VIRT_BASE;
+
 	freelist = (unsigned *)(init_virt_base + (uint64_t)freelist);
 	
 	return;
