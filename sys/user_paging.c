@@ -176,12 +176,13 @@ set_new_kpts(
 
 void *
 get_pt(
-	   uint64_t addr
+	   uint64_t addr,
+	   uint64_t pd_lkup
 	  )
 {
-	if ((*((uint64_t *)usr_pd + get_pd_offset(addr)) && 0x1) == 0x1)
+	if ((*((uint64_t *)pd_lkup + get_pd_offset(addr)) && 0x1) == 0x1)
 	{
-		return (void *)(*((uint64_t *)usr_pd + get_pd_offset(addr)) + VIRT_BASE);
+		return (void *)(*((uint64_t *)pd_lkup + get_pd_offset(addr)) + VIRT_BASE);
 	}
 	else
 	{
@@ -192,12 +193,13 @@ get_pt(
 
 void *
 get_pd(
-	   uint64_t addr
+	   uint64_t addr,
+	   uint64_t pdp_lkup
 	  )
 {
-	if ((*((uint64_t *)usr_pdp + get_pdp_offset(addr)) && 0x1) == 0x1)
+	if ((*((uint64_t *)pdp_lkup + get_pdp_offset(addr)) && 0x1) == 0x1)
 	{
-		return (void *)(*((uint64_t *)usr_pdp + get_pdp_offset(addr)) + VIRT_BASE);
+		return (void *)(*((uint64_t *)pdp_lkup + get_pdp_offset(addr)) + VIRT_BASE);
 	}
 	else
 	{		
@@ -208,18 +210,50 @@ get_pd(
 
 void *
 get_pdp(
-		 uint64_t addr
+		 uint64_t addr,
+		 uint64_t pml_lkup
 		)
 {		
-	if ((*((uint64_t *)pml4_shared + get_pml4_offset(addr)) && 0x1) == 0x1)
+	if ((*((uint64_t *)pml_lkup + get_pml4_offset(addr)) && 0x1) == 0x1)
 	{
-		return (void *)(*((uint64_t *)pml4_shared + get_pml4_offset(addr)) + VIRT_BASE);
+		return (void *)(*((uint64_t *)pml_lkup + get_pml4_offset(addr)) + VIRT_BASE);
 	}
 	else
 	{
 		void *page = (void *) page_alloc();
 		return page;
 	}
+}
+
+void
+set_kernel_page_user(
+					 uint64_t addr
+					)
+{
+	addr = (addr >> 12) << 12;
+	uint64_t *pml = (uint64_t *)pml4_shared;
+	uint64_t *pdp = (uint64_t *)ROUNDDOWN((uint64_t)get_pdp(addr, (uint64_t)pml), PAGE_SIZE);
+	uint64_t *pd = (uint64_t *) ROUNDDOWN((uint64_t)get_pd(addr, (uint64_t)pdp), PAGE_SIZE);
+	uint64_t *pt = (uint64_t *)ROUNDDOWN((uint64_t)get_pt(addr, (uint64_t)pd), PAGE_SIZE);
+
+	uint64_t phys_addr = *(pt + get_pt_offset(addr));
+		
+	*(pt + get_pt_offset(addr)) = phys_addr;
+	*(pt + get_pt_offset(addr)) |= USR_PERM_BITS;
+
+    *(pd + get_pd_offset(addr)) = ((uint64_t)pt - virt_base_for_user);
+	*(pd + get_pd_offset(addr)) = ((*(pd + get_pd_offset(addr)) >> 12) << 12);
+	 *(pd + get_pd_offset(addr)) |= USR_PERM_BITS;
+
+    *(pdp + get_pdp_offset(addr)) = ((uint64_t)pd - virt_base_for_user);
+	*(pdp + get_pdp_offset(addr)) = ((*(pdp + get_pdp_offset(addr)) >> 12) << 12);
+	*(pdp + get_pdp_offset(addr)) |= USR_PERM_BITS;
+
+    *(pml + get_pml4_offset(addr)) = ((uint64_t)pml - virt_base_for_user);
+	*(pml + get_pml4_offset(addr)) = ((*(pml + get_pml4_offset(addr)) >> 12) << 12);
+	 *(pml + get_pml4_offset(addr)) |= USR_PERM_BITS;
+
+	tlb_flush(pml4_shared - virt_base_for_user);
 }
 
 void
@@ -235,7 +269,7 @@ change_permissions(
 	pdp_off = get_pdp_offset(virt);
 	pd_off  = get_pd_offset(virt);
 	pt_off  = get_pt_offset(virt);
-
+	
 	pml = (uint64_t *)pml4_shared;
 	pdp = (pml + pml_off);
 	pd = (pdp + pdp_off);
@@ -289,11 +323,11 @@ memmap(
 			/*
 			 * New PDP and PD for user pages
 			 */
-			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr), PAGE_SIZE);
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr, pml4_shared), PAGE_SIZE);
 			usr_pdp = (uint64_t)pdp;
-			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr), PAGE_SIZE);
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr, (uint64_t)pdp), PAGE_SIZE);
 			usr_pd = (uint64_t)pd;
-			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr), PAGE_SIZE);
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr, (uint64_t)pd), PAGE_SIZE);
 			usr_pt = (uint64_t)ptu;
 			
 			while (pages--)
@@ -304,11 +338,11 @@ memmap(
 		break;
 		case SET_COW_RW:	/* Page fault error code 0x5 */
 			addr = (void *) get_user_virt_addr(0);
-			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr), PAGE_SIZE);
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr, pml4_shared), PAGE_SIZE);
 			usr_pdp = (uint64_t)pdp;
-			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr), PAGE_SIZE);
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr, (uint64_t)pdp), PAGE_SIZE);
 			usr_pd = (uint64_t)pd;
-			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr), PAGE_SIZE);
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr, (uint64_t)pd), PAGE_SIZE);
 			usr_pt = (uint64_t)ptu;
 
 			add_user_page((uint64_t)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), pdp, pd, ptu, prot);
@@ -328,15 +362,39 @@ memmap(
 			{
 				addr = (void *) (get_user_virt_addr(0));
 			}
-			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr), PAGE_SIZE);
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr, (uint64_t)pml4_shared), PAGE_SIZE);
 			usr_pdp = (uint64_t)pdp;
-			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr), PAGE_SIZE);
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr, (uint64_t)pdp), PAGE_SIZE);
 			usr_pd = (uint64_t)pd;
-			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr), PAGE_SIZE);
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr, (uint64_t)pd), PAGE_SIZE);
 			usr_pt = (uint64_t)ptu;
 			while (pages--)
 			{
 				add_user_page((uint64_t)addr, pdp, pd, ptu, USR_PERM_BITS);
+				if (pages) addr = (void *)((uint64_t)addr + PAGE_SIZE);
+			}
+		break;
+		case GROWS_DOWN:
+			/*
+			 * Traverse Page Tables
+			 */
+			if (!dif_ctxt)
+			{
+				addr = (void *) (get_user_virt_addr(0) + increment_pml());
+			}
+			else
+			{
+				addr = (void *) (get_user_virt_addr(0));
+			}
+			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr, (uint64_t)pml4_shared), PAGE_SIZE);
+			usr_pdp = (uint64_t)pdp;
+			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr, (uint64_t)pdp), PAGE_SIZE);
+			usr_pd = (uint64_t)pd;
+			ptu = (uint64_t *)ROUNDDOWN(get_pt((uint64_t)addr, (uint64_t)pd), PAGE_SIZE);
+			usr_pt = (uint64_t)ptu;
+			while (pages--)
+			{
+				add_user_page((uint64_t)addr - PAGE_SIZE, pdp, pd, ptu, USR_PERM_BITS);
 				if (pages) addr = (void *)((uint64_t)addr + PAGE_SIZE);
 			}
 		break;

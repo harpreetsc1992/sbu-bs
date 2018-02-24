@@ -29,6 +29,7 @@
 #define RW_TO_COW 			 2
 #define NEW_PAGE			 3
 #define CONTEXT_SWITCH		 4 //default in switch statement
+#define GROWS_DOWN			 5
 
 // offset flag
 #define NONE				 0
@@ -132,6 +133,29 @@ uint64_t
 get_user_phys_addr(
 				   int mapped
                   );
+
+void *
+get_pt(
+       uint64_t addr,
+	   uint64_t pd_lkup
+      );
+
+void *
+get_pd(
+       uint64_t addr,
+	   uint64_t pdp_lkup
+      );
+
+void *
+get_pdp(
+        uint64_t addr,
+		uint64_t pml_lkup
+       );
+
+void
+set_kernel_page_user(
+                     uint64_t addr
+                    );
 
 void
 change_permissions(

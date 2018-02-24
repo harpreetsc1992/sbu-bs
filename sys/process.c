@@ -1,5 +1,6 @@
 #include <sys/tarfs.h>
 #include <sys/timer.h>
+#include <sys/init.h>
 
 uint32_t child_pid;
 uint16_t p_id, ready_procs;
@@ -365,18 +366,21 @@ exec(
 	kstrcpy(pathname, tmp_pathname);
 
 	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(pathname);
-	pcb->stack[511] = (uint64_t)**arg2;
-	int tmp = **arg2;
-	int i = 510;
+	*((uint64_t *)((uint64_t)pcb->stack - 0x8)) = (uint64_t)*arg1;
+	int tmp = *arg1;
+	int i = 2;
 	while (tmp-- > 0)
 	{
-		pcb->stack[i--] = (uint64_t)*arg3++;
+		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*arg2++;
+		i++;
 	}
+	*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*arg3;
 	
 	struct task_struct *current_pcb = curr_upcb;
 	
-	pcb->pid = current_pcb->pid;
-	pcb->ppid = current_pcb->ppid;
+	pcb->ppid = current_pcb->pid;
+	uint64_t user_entry = pcb->entry;
+	enter_usermode(user_entry, (uint64_t) pcb->stack);
 	//TODO: correct execvpe	exit(0);
 	
 	return 0;

@@ -1,13 +1,14 @@
 #include <stdarg.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <stdlib.h>
 
 void
 vsprintf(
-          char *buf,
-          const char *fmt,
-          va_list args
-         )
+         char *buf,
+         const char *fmt,
+         va_list args
+        )
 {
     int len_fmt = (int) strlen(fmt);
     int ptr = 0;
@@ -19,7 +20,8 @@ vsprintf(
     {
         if (fmt[i] != '%')
         {
-            buf[ptr++] = fmt[i];
+            *(buf+ptr) = fmt[i];
+			ptr++;
             continue;
         }
         i++;
@@ -82,7 +84,6 @@ vsprintf(
     buf[ptr] = '\0';
 }
 
-char buf[1024];
 void
 printf(
 	   const char *fmt,
@@ -91,6 +92,7 @@ printf(
 {
 	va_list args;
 
+	char *buf = malloc(64);
     va_start(args, fmt);
     vsprintf(buf, fmt, args);
 

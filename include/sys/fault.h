@@ -5,6 +5,7 @@
 #include <sys/process.h>
 #include <sys/k_utils.h>
 #include <sys/tarfs.h>
+#include <sys/kern_ops.h>
 
 static void
 page_fault_handler(
@@ -29,7 +30,7 @@ page_fault_handler(
 
 	if (addr > VIRT_BASE && error_no == 0x7)
 	{
-//		set_kernel_page_user(addr);
+		set_kernel_page_user((uint64_t)ROUNDDOWN(addr, PAGE_SIZE));
 	}
 
 	else if(error_no & 0x1)

@@ -21,9 +21,10 @@ jmp_usrmode(
    	"mov %%rax, %%ds\t\n" 
    	"mov %%rax, %%gs\t\n" 
 
-    "mov %%rsp, %%rax\t\n"
+//    "mov %%rsp, %%rax\t\n"
     "push $0x23\t\n" 
-    "push %%rax\t\n" 
+	"push %%rbx\t\n"
+//    "push %%rax\t\n" 
     "pushf\t\n" 
     "push $0x2B\t\n"
     "push %0\t\n"

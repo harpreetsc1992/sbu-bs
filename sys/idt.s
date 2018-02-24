@@ -82,7 +82,21 @@ isr14:
 isr128:
 	PUSHA
 	call isr_handler128
-	POPA
+    pop %r15
+    pop %r15
+    pop %r14
+    pop %r13
+    pop %r12
+    pop %r11
+    pop %r10
+    pop %r9
+    pop %r8
+    pop %rsi
+    pop %rbp
+    pop %rdx
+    pop %rcx
+    pop %rbx
+    pop %rdi	
 	iretq
 
 irq0:
@@ -103,11 +117,11 @@ irq1:
 
 isr_coord:
     PUSHA
-//	mov %rsp, %rdi
+	mov %rsp, %rdi
     call isr_handler
     POPA
-	jmp jmp_usrmode
-//    add $0x10, %rsp
-//    sti
-//    iretq
+//	jmp jmp_usrmode
+    add $0x10, %rsp
+    sti
+    iretq
 .end

@@ -109,51 +109,18 @@ execute_command(
 				char *cmd
 			   )
 {
-/*
-	if ((strncmp(cmd, "cd", 2)) == 0 && (strncmp(cmd, "cd ..", 5)) != 0)
-	{ 
-		char *directory = trim(cmd + 2);
-		if (*directory == '\0' || (strcmp(directory, "/") == 0) || (strcmp(directory, "/") == 0) )
-		{
-			pwd[0] = '~';
-			pwd[1] = '\0';
-		}
-		else
-		{
-			addToPWD(directory);
-			if (opendir(pwd + 1) == 0)
-			{
-				cd_up(pwd + 1);
-			}
-		}
-	}
-*/
 	if ((strncmp(cmd, "ls", 2)) == 0)
 	{
 		uint64_t dir_add = opendir(pwd + 1);
 		read_dir(dir_add);
 	}
-/*
-	else if ((strncmp(cmd, "cd ..", 5)) == 0)
-	{
-		if (!(strlen(pwd) == 1))
-		{
-			cd_up(pwd + 1);       
-        }
-	}
-*/
+
 	else if ((strncmp(cmd, "cat", 3)) == 0)
 	{
 		char *file = trim(cmd + 3);
 		cat(file);
 	}   
-/*
-	else if ((strncmp(input, "vi", 2)) == 0)
-	{
-		char *file = trim(cmd + 3);
-		vi(file);
-	} 
-*/
+
 	else if ((strncmp(cmd, "ps", 2)) == 0)
 	{
 		printf("\n");
@@ -182,23 +149,12 @@ execute_command(
 			printf("%s", str);
 		}   
 	}
-/*
-	else if((strncmp(cmd, "pwd", 4)) == 0)
-	{
-	    printf("\n%s", pwd);
-	}
-*/
+
 	else if ((strncmp(cmd, "help", 4)) == 0)
 	{
 	    printf("\nSupported commands are: ls, cat, echo, sleep, ps, help");
 	}
-/*
-	else if((strncmp(cmd, "shutdown", 4)) == 0)
-	{
-	    printf("\nShutdown");
-	    shutdown();
-	}
-*/
+
 	else
 	{
 		printf("\nCommand not found.");
@@ -207,7 +163,7 @@ execute_command(
 
 int main(int argc, char *argv[], char *envp[]) 
 {
-	puts("sbush> ");
+	printf("sbush> ");
 	char input[100];
 	while ((strncmp(input, "exit", 4)) != 0)
 	{
