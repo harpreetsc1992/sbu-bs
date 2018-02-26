@@ -10,10 +10,12 @@
 extern unsigned char kbdus[128];
 extern unsigned char kbdshift[128];
 extern unsigned char kbdcaps[128];
-extern char buf[1024];
+extern char buf[128];
 extern int flag;
 extern uint64_t* gets_at;
 extern uint16_t counter;
+
+extern void irq1();
 
 typedef enum
 {

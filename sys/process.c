@@ -150,14 +150,54 @@ get_ppid(
 	return (uint64_t)curr_upcb->ppid;
 }
 
+uint64_t
+exec(
+	 char *file,
+	 char **argv,
+	 char **envp
+	)
+{
+	char *tmp_pathname = file;
+	char pathname[32];
+	kstrcpy(pathname, tmp_pathname);
+	int index = 1;
+	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(pathname);
+
+	char *_tmp = *argv;
+	while (*_tmp != '\0')
+	{
+		if (*_tmp++ == ' ')
+		{
+			index++;
+		}
+	}	
+
+	*((uint64_t *)((uint64_t)pcb->stack - 0x8)) = (uint64_t)index;
+	int tmp = index;
+	int i = 2;
+	while (tmp-- > 0)
+	{
+		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*argv++;
+		i++;
+	}
+	if (NULL != envp)	*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*envp;
+	
+	struct task_struct *current_pcb = curr_upcb;
+	
+	pcb->ppid = current_pcb->pid;
+	uint64_t user_entry = pcb->entry;
+	enter_usermode(user_entry, (uint64_t) pcb->stack);
+	//TODO: correct execvpe	exit(0);
+	
+	return 0;
+}
+
 int
 fork_process(
 			)
 {
 	struct task_struct *parent_pcb = curr_upcb;
 	struct task_struct *child_pcb = (struct task_struct *)kmalloc(sizeof(struct task_struct));
-	parent_pcb = (struct task_struct *)((((uint64_t)parent_pcb >> 3) << 3) | COW_PERM_BITS);
-	child_pcb = (struct task_struct *)((((uint64_t)child_pcb >> 3) << 3) | COW_PERM_BITS);
 	if(NULL == child_pcb)
 	{
 		kprintf("Out of Memory\n");
@@ -180,11 +220,11 @@ fork_process(
 	
 	kmemcpy(child_pcb->pname, parent_pcb->pname, kstrlen(parent_pcb->pname));        
 	
-	child_pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, CONTEXT_SWITCH);
+	child_pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, GROWS_DOWN);
 	
 	child_pcb->pml4e = (uint64_t)pml4_shared;
 	child_pcb->cr3 = pml4_shared - VIRT_BASE;
-	child_pcb->stack = parent_pcb->stack;
+	kmemcpy((void *)((uint64_t)child_pcb->stack - PAGE_SIZE), (void *)((uint64_t)parent_pcb->stack - PAGE_SIZE), PAGE_SIZE);
 	
 	child_pcb->kstack[511] = 0x23; //ss
 	child_pcb->kstack[510] = (uint64_t)&child_pcb->stack[511]; //rsp
@@ -242,7 +282,9 @@ fork_process(
 	
 	/* switch back to caller address space before we return */
 	tlb_flush((uint64_t)parent_pcb->cr3);
-	
+	child_pcb = (struct task_struct *) memmap((void *) child_pcb, sizeof(struct task_struct), COW_PERM_BITS, RW_TO_COW);
+	child_pcb->stack = memmap((void *) ((uint64_t) child_pcb->stack - PAGE_SIZE), PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
+	child_pcb->heap_vma	= (struct vm_area_struct *)memmap((void *) child_pcb->heap_vma, PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
 	return child_pid;
 }
 
@@ -351,39 +393,6 @@ malloc(
 	}
 
 	return (void *)old;   
-}
-
-uint64_t
-exec(
-	 char *arg1,
-	 char **arg2,
-	 char **arg3
-	)
-{
-	/*************** use kmalloc to access it further when u switch the stack  *******/
-	char *tmp_pathname = arg1;
-	char pathname[1024];
-	kstrcpy(pathname, tmp_pathname);
-
-	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(pathname);
-	*((uint64_t *)((uint64_t)pcb->stack - 0x8)) = (uint64_t)*arg1;
-	int tmp = *arg1;
-	int i = 2;
-	while (tmp-- > 0)
-	{
-		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*arg2++;
-		i++;
-	}
-	*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*arg3;
-	
-	struct task_struct *current_pcb = curr_upcb;
-	
-	pcb->ppid = current_pcb->pid;
-	uint64_t user_entry = pcb->entry;
-	enter_usermode(user_entry, (uint64_t) pcb->stack);
-	//TODO: correct execvpe	exit(0);
-	
-	return 0;
 }
 
 int

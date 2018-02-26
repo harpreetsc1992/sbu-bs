@@ -121,23 +121,26 @@ unsigned char kbdcaps[128] =
     0,  /* All other keys are undefined */
 };
 
-char buf[1024];
+char buf[128];
 int flag;
 uint16_t counter;
 uint64_t* gets_at;
 last_key_pressed lkp;
 
-char*
+char *
 gets(
 	 char *s
 	)
 {
-	char *user_buf = s;
-
+	char *tmp_buf = s;
 	flag = 1;
-	kmemcpy((void *)user_buf, (void *)buf, counter);
+	kprintf("gets");
+	__asm__ __volatile__(
+			"sti\t\n"
+			);
+	while (flag == 1);
+	kmemcpy((void *)tmp_buf, (void *)buf, counter);
 	counter = 0;
-	flag = 0;
 	return s;
 }
 
@@ -147,6 +150,7 @@ init_kbd(
 {
 	lkp = NONE;
 	gets_at = NULL;
+	flag = 0;
 	counter = 0;
 }
 
@@ -163,7 +167,8 @@ keyboard_handler(
     scancode = inb(0x60);
 
     /* If the top bit of the byte we read from the keyboard is
-    *  set, that means that a key has just been released */
+     * set, that means that a key has just been released 
+	 */
     if (scancode & 0x80)
     {
 		if ((scancode == 157) || (scancode == 170) || (scancode == 184))

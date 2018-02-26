@@ -8,5 +8,6 @@ int puts(const char *s);
 void printf(const char *fmt, ...);
 
 char *gets(char *s);
+void scanf(const char *str, ...);
 
 #endif

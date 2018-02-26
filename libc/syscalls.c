@@ -57,14 +57,6 @@ execvpe(
 	return __syscall3(10, (uint64_t) file, (uint64_t) argv, (uint64_t) envp);
 }
 
-void
-scanf(
-	  
-	 )
-{
-	
-}
-
 uint64_t
 opendir(
 		char* dir
@@ -98,11 +90,11 @@ open(
 ssize_t
 read(
 	 FILE* fd,
-	 size_t count,
-	 char *buf
+	 char *buf,
+	 size_t count
 	)
 {
-	int bytes_read = (int)__syscall3(15, (uint64_t) fd, (uint64_t) count, (uint64_t) buf);
+	uint64_t bytes_read = (uint64_t)__syscall3(15, (uint64_t) fd, (uint64_t) count, (uint64_t) buf);
 	return bytes_read;
 }
 

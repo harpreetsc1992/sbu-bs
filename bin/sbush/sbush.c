@@ -6,41 +6,8 @@
 #include <stdlib.h>
 #include <sys/timer.h>
 
-char path[100] = "bin/";
-char pwd[100] = "~";
-
-void
-cat(
-	char *name
-   )
-{
-	char str[100];
-	strcpy(str, pwd);
-	int len = strlen(str);
-	FILE *fd;
-	char buf[256];
-	int j = 0;
-	int bytes_read;
-
-	for ( ; *name != '\0'; name++)
-	{
-		str[len++] = *name;
-	}
-
-	str[len] = '\0';
-
-	printf("\n"); 
-	fd = open(str + 1);
-	printf("\n %s", fd->filename);
-
-	bytes_read = read(fd, 256, buf);
-	while (bytes_read-- != 0)
-	{
-		printf("%c", buf[j++]);
-	}
-
-	printf("\n");
-}
+//char path[100] = "bin/";
+//char pwd[100] = "~";
 
 char
 *trim(
@@ -77,7 +44,8 @@ get_file(
 		 char *buf
 		)
 {
-	char path[100];
+	char path[32];
+	char *pwd = "bin/";
 	strcpy(path, pwd);
 	int path_len = strlen(path);
 	
@@ -93,12 +61,14 @@ get_file(
 	}
 	path[path_len] = '\0';
 	
-	FILE* fd = open(path + 1);
-	if (fd != 0)
-	{
-		read(fd, 512, buf);
-		return 1;
-	}
+	FILE* fd = open("bin/cat");//path + 1);
+	if (fd) return 1;
+		
+//	if (fd != 0)
+//	{
+//		read(fd, buf, 512);
+//		return 1;
+//	}
 
 null_path:
 	return 0;
@@ -106,23 +76,47 @@ null_path:
 
 void
 execute_command(
-				char *cmd
+				char *cmd,
+				char *arg,
+				char bg_flag
 			   )
 {
+	char *pwd = "/";
+	char *path = "bin";
 	if ((strncmp(cmd, "ls", 2)) == 0)
 	{
+		printf("%s\n", cmd);
 		uint64_t dir_add = opendir(pwd + 1);
 		read_dir(dir_add);
 	}
-
 	else if ((strncmp(cmd, "cat", 3)) == 0)
 	{
-		char *file = trim(cmd + 3);
-		cat(file);
+		char *file = arg;
+		printf ("Cat %s\n", cmd);
+		int pid = fork();
+		if (pid != 0)
+		{
+        	if (bg_flag != '&') 
+			{
+            	waitpid(pid, 0);
+        	}
+			else 
+			{
+				printf("Background Process\n");
+            	return;
+        	}
+
+    	} 
+		else 
+		{
+        	execvpe("bin/cat", &file, NULL);
+        	exit(1);
+		}
 	}   
 
 	else if ((strncmp(cmd, "ps", 2)) == 0)
 	{
+		printf ("PS%s\n", cmd);
 		printf("\n");
 		ps();
 	}  
@@ -164,23 +158,27 @@ execute_command(
 int main(int argc, char *argv[], char *envp[]) 
 {
 	printf("sbush> ");
-	char input[100];
+	char input[16];
+	char bg_flag;
 	while ((strncmp(input, "exit", 4)) != 0)
 	{
-//		scanf("%s", input); 
+//		scanf("%s", input);
+		strcpy(input, "cat test");
+		int len = strlen(input);
+		bg_flag = input[len - 1];
 		if ((strncmp(input, "sh ", 3)) == 0)
 		{
 //			printf("\n");
 			char *str = trim(input + 2);
-			char buf[512];
+			char buf[16];
 			int file_exists = get_file(str, buf);
 			if (file_exists)
 			{
 				int i;
-				char temp[100];
+				char temp[10];
 				int k =0;
 				int first = 0;
-				for (i = 0; i < 512; i++)
+				for (i = 0; i < 16; i++)
 				{
 					if (buf[i] == '\0')
 					{
@@ -203,7 +201,7 @@ int main(int argc, char *argv[], char *envp[])
 						}
 						else
 						{
-							execute_command(trim(temp));
+							execute_command(trim(temp), "", bg_flag);
 						}
 					}
 					else
@@ -215,10 +213,15 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	    else
 		{
-			execute_command(input);    
+			char *str = input;//trim(input + 2);
+            char buf[16];
+
+			int file_exists = get_file(str, buf);
+			if(file_exists) execute_command("cat", "test", '\0');//bg_flag);    
 		}
 	}
     printf("\nExiting...");
     exit(-1);
     return 0;
 }
+

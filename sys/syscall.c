@@ -48,10 +48,14 @@ isr_handler128(
 	{
 		val = fork_process();
 		__asm__ __volatile__(
+				"movq $0, %%rax\t\n" // load fork child id as return value
+				:: "r" (val)
+				);
+/*		__asm__ __volatile__(
 				"movq %0, %%rax\t\n" // load fork child id as return value
 				:: "r" (val)
 				);
-	}
+*/	}
 	else if (syscall_no == 5)  // exit
 	{
 		exit_process(buf);
@@ -136,7 +140,7 @@ isr_handler128(
 	}
 	else if (syscall_no == 15) // read file
 	{
-		int bytes_read = readfile((FILE *) buf, (int) arg1, arg2);
+		uint64_t bytes_read = readfile((FILE *) buf, (int) arg1, arg2);
 		__asm__ __volatile__(
 				"movq %0, %%rax\t\n"
 				:: "a" ((uint64_t)bytes_read)

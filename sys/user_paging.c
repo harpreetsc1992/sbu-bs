@@ -264,32 +264,29 @@ change_permissions(
 {
 	uint64_t *pml, *pdp, *pd, *pt;
 	uint64_t virt = (uint64_t) addr;
-	uint64_t pml_off, pdp_off, pd_off, pt_off;
-	pml_off = get_pml4_offset(virt);
-	pdp_off = get_pdp_offset(virt);
-	pd_off  = get_pd_offset(virt);
+	uint64_t pt_off;
 	pt_off  = get_pt_offset(virt);
 	
 	pml = (uint64_t *)pml4_shared;
-	pdp = (pml + pml_off);
-	pd = (pdp + pdp_off);
-	pt = (pd + pd_off);
+	pdp = (uint64_t *)ROUNDDOWN((uint64_t)get_pdp((uint64_t)addr, (uint64_t)pml), PAGE_SIZE);
+	pd = (uint64_t *) ROUNDDOWN((uint64_t)get_pd((uint64_t)addr, (uint64_t)pdp), PAGE_SIZE);
+	pt = (uint64_t *)ROUNDDOWN((uint64_t)get_pt((uint64_t)addr, (uint64_t)pd), PAGE_SIZE);
 	
-	*(uint64_t *)((*(pt + pt_off) >> 3) << 3) |= perm;
+	*(pt + pt_off) = ((*(pt + pt_off) >> 12) << 12) | perm;
 	usr_pt = (uint64_t) pt;
 
-    *(pd + pd_off) = ((uint64_t)pt - virt_base_for_user);
-    *(uint64_t *)((*(pd + pd_off) >> 3) << 3) |= perm;
-	usr_pd = (uint64_t) pd;
+//    *(pd + pd_off) = ((uint64_t)pt - virt_base_for_user);
+//    *(uint64_t *)((*(pd + pd_off) >> ) << 3) |= perm;
+//	usr_pd = (uint64_t) pd;
 
-	*(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
-    *(uint64_t *)((*(pdp + pdp_off) >> 3) << 3) |= perm;
-	usr_pdp = (uint64_t) pdp;
+//	*(pdp + pdp_off) = ((uint64_t)pd - virt_base_for_user);
+//    *(uint64_t *)((*(pdp + pdp_off) >> 3) << 3) |= perm;
+//	usr_pdp = (uint64_t) pdp;
 
-	pml = (uint64_t *)pml4_shared;
-    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
-    *(uint64_t *)((*(pml + pml_off) >> 3) << 3) |= perm;
-	pml4_shared = usr_pml = (uint64_t) pml;		
+//	pml = (uint64_t *)pml4_shared;
+//    *(pml + pml_off) = ((uint64_t)pdp - virt_base_for_user);
+//    *(uint64_t *)((*(pml + pml_off) >> 3) << 3) |= perm;
+//	pml4_shared = usr_pml = (uint64_t) pml;		
 }
 
 void *
@@ -316,6 +313,8 @@ memmap(
 	int modulo = length % PAGE_SIZE;
 
 	if (modulo) pages++;
+
+	int i;
 
 	switch (flags)
 	{
@@ -348,7 +347,12 @@ memmap(
 			add_user_page((uint64_t)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), pdp, pd, ptu, prot);
 		break;
 		case RW_TO_COW:		/* Not a case of page fault. Use during fork */
-			change_permissions((uint64_t *)ROUNDDOWN((uint64_t)addr, PAGE_SIZE), prot);
+			i = 0;
+			while (i < pages)
+			{
+				change_permissions((uint64_t *)ROUNDDOWN((uint64_t)addr + i * PAGE_SIZE, PAGE_SIZE), prot);
+				i++;
+			}
 		break;
 		case NEW_PAGE:			/* Used when a pcb element asks for a page in user space */
 			/*
@@ -378,14 +382,14 @@ memmap(
 			/*
 			 * Traverse Page Tables
 			 */
-			if (!dif_ctxt)
-			{
-				addr = (void *) (get_user_virt_addr(0) + increment_pml());
-			}
-			else
-			{
+//			if (!dif_ctxt)
+//			{
+//				addr = (void *) (get_user_virt_addr(0) + increment_pml());
+//			}
+//			else
+//			{
 				addr = (void *) (get_user_virt_addr(0));
-			}
+//			}
 			pdp = (uint64_t *)ROUNDDOWN(get_pdp((uint64_t)addr, (uint64_t)pml4_shared), PAGE_SIZE);
 			usr_pdp = (uint64_t)pdp;
 			pd = (uint64_t *)ROUNDDOWN(get_pd((uint64_t)addr, (uint64_t)pdp), PAGE_SIZE);

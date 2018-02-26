@@ -84,7 +84,7 @@ openfile(
       	 char *file
     	);
 
-int
+ssize_t
 readfile(
          FILE* file_addr,
          int size,

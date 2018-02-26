@@ -1,5 +1,6 @@
 #include <sys/tarfs.h>
 #include <sys/k_utils.h>
+#include <stdio.h>
 
 char *
 vma_data(
@@ -119,17 +120,19 @@ openfile(
 	tarfs_entry tar_e;
 	int i = 0;
 
+	char *filename = (file + 4);
+
 	while (1)
 	{   
 		tar_e = tarfs_fs[i];
 		i++;
-	
+		char *n = &tar_e.name[4];
 		if (0 == kstrlen(tar_e.name))
 		{
 			break;
 		}
 
-		if ((0 == kstrcmp(tar_e.name, file)) && (tar_e.typeflag == FILE_TYPE))
+		if (0 == kstrcmp(n, filename))// && (tar_e.typeflag == FILE_TYPE))
         {   
 			kstrcpy(fd->filename, file); 
 			fd->inode_num = i - 1;
@@ -140,12 +143,12 @@ openfile(
 	}
 
 	kprintf("\n No such file \n");
-	kprintf("%s\n", file);
+	kprintf("%s\n", filename);
 
 	return NULL;
 }
 
-int 
+ssize_t 
 readfile(
 		 FILE* file_addr, 
 		 int size, 
@@ -164,9 +167,10 @@ readfile(
 		return 0;
 	}
 
-	if (0 == file_addr->address)
+	if (0 == file_addr)
 	{
-        return 0;
+        buf = (uint64_t) gets((char *) buf);
+		return buf; 
 	}
 
 	file_hdr = (struct posix_header_ustar *) file_addr->address;
@@ -190,7 +194,7 @@ readfile(
 
     tmp[i] = '\0';
    
-	return bytes;
+	return (uint64_t) bytes;
 }
 
 int 

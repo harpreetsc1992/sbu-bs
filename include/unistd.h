@@ -5,7 +5,7 @@
 
 FILE* open(char *file_name);
 int close(int fd);
-ssize_t read(FILE* fd, size_t count, char *buf);
+ssize_t read(FILE* fd, char *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 int unlink(const char *pathname);
 void read_dir(uint64_t dir);
