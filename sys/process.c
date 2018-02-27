@@ -177,7 +177,7 @@ exec(
 	int i = 2;
 	while (tmp-- > 0)
 	{
-		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*argv++;
+		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)argv[i - 2];
 		i++;
 	}
 	if (NULL != envp)	*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*envp;

@@ -13,8 +13,13 @@ main(
 	 char **envp
 	)
 {
-	char str[64];
-    strcpy(str, argv[0]);
+//	__asm__ __volatile__(
+//			"mov %%rbx, %0\t\n"
+//			: "=r" ((uint64_t) argv)
+//			);
+	char str[32];
+    strcpy(str, argv[1]);
+	printf ("%s\n", str);
     int len = strlen(str);
     FILE *fd;
     char buf[64];
@@ -29,8 +34,8 @@ main(
 
     str[len] = '\0';
 
-    fd = open(str + 1);
-    printf("\n %s", fd->filename);
+    fd = open(str);
+//    printf("\n %s", fd->filename);
 
     bytes_read = read(fd, buf, 256);
     while (bytes_read-- != 0)

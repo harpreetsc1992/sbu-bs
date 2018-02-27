@@ -91,8 +91,9 @@ execute_command(
 	}
 	else if ((strncmp(cmd, "cat", 3)) == 0)
 	{
-		char *file = arg;
-		printf ("Cat %s\n", cmd);
+		char *file = malloc(16); 
+		strcpy(file, arg);
+		printf ("%s %s\n", cmd, file);
 		int pid = fork();
 		if (pid != 0)
 		{
@@ -217,7 +218,7 @@ int main(int argc, char *argv[], char *envp[])
             char buf[16];
 
 			int file_exists = get_file(str, buf);
-			if(file_exists) execute_command("cat", "test", '\0');//bg_flag);    
+			if(file_exists) execute_command("cat", "bin/test", '\0');//bg_flag);    
 		}
 	}
     printf("\nExiting...");
