@@ -16,8 +16,8 @@ init_usr_pcb(
 	pcb->mm->count = 0;
 	pcb->mm->mmap = NULL;
 
-	pcb->pid = ++upid;
-	pcb->ppid = 0;
+	if (upid == 0)	pcb->pid = ++upid;
+	pcb->ppid = upid - 1;
 	pcb->state = READY;
 
 	kmemcpy(pcb->pname, file_name, kstrlen((char *)file_name));

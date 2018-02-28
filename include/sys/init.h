@@ -4,6 +4,9 @@
 #include <sys/defs.h>
 #include <sys/page_alloc.h>
 
+extern struct task_struct *shell_pcb;
+extern uint64_t shell_entry;
+
 void
 enter_usermode(
                uint64_t user_entry,

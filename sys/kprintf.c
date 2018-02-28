@@ -48,18 +48,18 @@ vasprintf(
                     j = 8;
                     while (j-- > 0)
                     {
-                        buf[ptr] = "0123456789abcdef"[(value>>(j*4))&0xF];
+                        buf[ptr] = "0123456789abcdef"[(value >> (j * 4)) & 0xF];
                         ptr++;
                     }
                 break;
             case 'd': /* If it's a decimal number */
                     value = (unsigned long) va_arg(args, unsigned long);
-                    j = 9;
-                    while (j > 0)
+                    //j = 9;
+                    while (value > 0)
                     {
                         unsigned int n = value / 10;
                         int r = value % 10;
-                        buf[ptr + j - 1] = r + '0';
+                        buf[ptr++] = r + '0';
                         j--;
                         value = n;
                     }
@@ -135,7 +135,7 @@ kprintf(
        )
 {
     va_list args;
-    
+
     va_start(args, fmt);
     vasprintf(buf, fmt, args);
     va_end(args);

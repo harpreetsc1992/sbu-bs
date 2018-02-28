@@ -61,7 +61,7 @@ get_file(
 	}
 	path[path_len] = '\0';
 	
-	FILE* fd = open("bin/cat");//path + 1);
+	FILE* fd = open("bin/ls");//path + 1);
 	if (fd) return 1;
 		
 //	if (fd != 0)
@@ -83,17 +83,33 @@ execute_command(
 {
 	char *pwd = "/";
 	char *path = "bin";
+	if (pwd);
 	if ((strncmp(cmd, "ls", 2)) == 0)
 	{
-		printf("%s\n", cmd);
-		uint64_t dir_add = opendir(pwd + 1);
-		read_dir(dir_add);
+		int pid = fork();
+		if (pid != 0)
+		{
+        	if (bg_flag != '&') 
+			{
+            	waitpid(pid, 0);
+        	}
+			else 
+			{
+				printf("Background Process\n");
+            	return;
+        	}
+
+    	} 
+		else 
+		{
+        	execvpe("bin/ls", NULL, NULL);
+        	exit(1);
+		}	
 	}
 	else if ((strncmp(cmd, "cat", 3)) == 0)
 	{
 		char *file = malloc(16); 
 		strcpy(file, arg);
-		printf ("%s %s\n", cmd, file);
 		int pid = fork();
 		if (pid != 0)
 		{
@@ -117,9 +133,27 @@ execute_command(
 
 	else if ((strncmp(cmd, "ps", 2)) == 0)
 	{
-		printf ("PS%s\n", cmd);
-		printf("\n");
-		ps();
+//		printf ("PS%s\n", cmd);
+//		printf("\n");
+		int pid = fork();
+		if (pid != 0)
+		{
+        	if (bg_flag != '&') 
+			{
+            	waitpid(pid, 0);
+        	}
+			else 
+			{
+				printf("Background Process\n");
+            	return;
+        	}
+
+    	} 
+		else 
+		{
+        	execvpe("bin/ps", NULL, NULL);
+        	exit(1);
+		}
 	}  
 	else if ((strncmp(cmd, "sleep", 5)) == 0)
 	{
@@ -158,13 +192,12 @@ execute_command(
 
 int main(int argc, char *argv[], char *envp[]) 
 {
-	printf("sbush> ");
 	char input[16];
 	char bg_flag;
 	while ((strncmp(input, "exit", 4)) != 0)
 	{
 //		scanf("%s", input);
-		strcpy(input, "cat test");
+		strcpy(input, "ps");
 		int len = strlen(input);
 		bg_flag = input[len - 1];
 		if ((strncmp(input, "sh ", 3)) == 0)
@@ -218,7 +251,7 @@ int main(int argc, char *argv[], char *envp[])
             char buf[16];
 
 			int file_exists = get_file(str, buf);
-			if(file_exists) execute_command("cat", "bin/test", '\0');//bg_flag);    
+			if(file_exists) execute_command("ps", "", '\0');//bg_flag);    
 		}
 	}
     printf("\nExiting...");

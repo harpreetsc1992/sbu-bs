@@ -1,5 +1,6 @@
 #include <sys/process.h>
 #include <sys/init.h>
+#include <sys/swtch_rings.h>
 
 int
 schedule(
@@ -31,11 +32,7 @@ schedule(
 
 	old->proc_state = READY;
 
-//	move_to_end(old);
-
 	dispatch(&old->c_t, &curr->c_t);
-	//fn_call();
-	//thread1();
 	return 1;
 }
 
@@ -43,13 +40,18 @@ void
 yield(
 	 )
 {
-	//fn_call();
-
 	if (ready_procs > 1)
 	{
 		if (!schedule(processes, processes->next))
 		{
-			kprintf("Couldn't schedule the next process\n");
+			tlb_flush(shell_pcb->cr3);
+			pml4_shared = shell_pcb->pml4e;
+			load_segment(shell_pcb, "bin/sbush", 0);
+			memmap(shell_pcb->stack, PAGE_SIZE, USR_PERM_BITS, GROWS_DOWN);
+			*((uint64_t *)((uint64_t)shell_pcb->stack - 0x8)) = 0;
+    		*((uint64_t *)((uint64_t)shell_pcb->stack - 0x10)) = 0;
+    		*((uint64_t *)((uint64_t)shell_pcb->stack - 0x18)) = 0;
+			jmp_usrmode(shell_pcb->entry, shell_pcb->stack);
 		}
 	
 		move_to_next();

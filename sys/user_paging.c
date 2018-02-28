@@ -275,6 +275,14 @@ change_permissions(
 	*(pt + pt_off) = ((*(pt + pt_off) >> 12) << 12) | perm;
 	usr_pt = (uint64_t) pt;
 
+	*(pd + (get_pd_offset((uint64_t)addr))) = ((uint64_t)pt - virt_base_for_user);
+	*(pdp + (get_pdp_offset((uint64_t)addr))) = ((uint64_t)pd - virt_base_for_user);
+	*(pml + (get_pml4_offset((uint64_t)addr))) = ((uint64_t)pdp - virt_base_for_user);
+
+	usr_pd = (uint64_t)pd;
+	usr_pdp = (uint64_t)pdp;
+	usr_pml = (uint64_t)pml;
+
 //    *(pd + pd_off) = ((uint64_t)pt - virt_base_for_user);
 //    *(uint64_t *)((*(pd + pd_off) >> ) << 3) |= perm;
 //	usr_pd = (uint64_t) pd;
@@ -318,7 +326,7 @@ memmap(
 
 	switch (flags)
 	{
-		case ACCESSED_NOT_PRESENT: /* Page Fault error code 0x0 */
+		case ACCESSED_NOT_PRESENT: /* Page Fault error code 0x4 */
 			/*
 			 * New PDP and PD for user pages
 			 */

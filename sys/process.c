@@ -163,19 +163,22 @@ exec(
 	int index = 1;
 	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(pathname);
 
-	char *_tmp = *argv;
-	while (*_tmp != '\0')
+	if (NULL != argv)
 	{
-		if (*_tmp++ == ' ')
+		char *_tmp = *argv;
+		while (*_tmp != '\0')
 		{
-			index++;
+			if (*_tmp++ == ' ')
+			{
+				index++;
+			}	
 		}
 	}	
 
 	*((uint64_t *)((uint64_t)pcb->stack - 0x8)) = (uint64_t)index;
 	int tmp = index;
 	int i = 2;
-	while (tmp-- > 0)
+	while (--tmp > 0)
 	{
 		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)argv[i - 2];
 		i++;
@@ -185,6 +188,7 @@ exec(
 	struct task_struct *current_pcb = curr_upcb;
 	
 	pcb->ppid = current_pcb->pid;
+	curr_upcb = pcb;
 	uint64_t user_entry = pcb->entry;
 	enter_usermode(user_entry, (uint64_t) pcb->stack);
 	//TODO: correct execvpe	exit(0);
@@ -215,7 +219,6 @@ fork_process(
 	
 	child_pcb->state = READY;
 
-	++process_count;
 	add_to_ready_list_user(child_pcb);
 	
 	kmemcpy(child_pcb->pname, parent_pcb->pname, kstrlen(parent_pcb->pname));        
@@ -282,9 +285,9 @@ fork_process(
 	
 	/* switch back to caller address space before we return */
 	tlb_flush((uint64_t)parent_pcb->cr3);
-	child_pcb = (struct task_struct *) memmap((void *) child_pcb, sizeof(struct task_struct), COW_PERM_BITS, RW_TO_COW);
-	child_pcb->stack = memmap((void *) ((uint64_t) child_pcb->stack - PAGE_SIZE), PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
-	child_pcb->heap_vma	= (struct vm_area_struct *)memmap((void *) child_pcb->heap_vma, PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
+//	child_pcb = (struct task_struct *) memmap((void *) child_pcb, sizeof(struct task_struct), COW_PERM_BITS, RW_TO_COW);
+//	child_pcb->stack = memmap((void *) ((uint64_t) child_pcb->stack - PAGE_SIZE), PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
+//	child_pcb->heap_vma	= (struct vm_area_struct *)memmap((void *) child_pcb->heap_vma, PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
 	return child_pid;
 }
 
@@ -319,6 +322,19 @@ exit_process(
     }
 
 	process_count--;
+	upid--;
+	
+	int j = 0;
+	while (j < process_count)
+	{
+		if (((struct task_struct *) ready_queue[j])->pid == curr_upcb->ppid)
+		{
+//			curr_upcb = (struct task_struct *) ready_queue[j];
+			curr_upcb = shell_pcb;
+			break;
+		}
+		j++;
+	}
 
 //	TODO: free(curr_upcb);
  
@@ -482,10 +498,10 @@ dp(
 {
 	struct task_struct *pcb;
 	int i;
-	for(i = 1; i <= process_count; i++)
+	for(i = 0; i < process_count; i++)
 	{
 		pcb = (struct task_struct *)ready_queue[i];
-		kprintf("%p\n", pcb);
+		kprintf("pid %d ppid %d name %s\n", pcb->pid, pcb->ppid, pcb->pname);
 	} 
 }
 
@@ -499,6 +515,8 @@ clear_screen(
 		placechar(' ', i, j, 0x7);
 	}
 	placechar(' ', 0, 0, 0x7);
+	
+	kprintf("sbush> ");
 }
 
 void

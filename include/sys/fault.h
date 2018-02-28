@@ -6,6 +6,7 @@
 #include <sys/k_utils.h>
 #include <sys/tarfs.h>
 #include <sys/kern_ops.h>
+#include <utils.h>
 
 static void
 page_fault_handler(
@@ -33,108 +34,71 @@ page_fault_handler(
 		set_kernel_page_user((uint64_t)ROUNDDOWN(addr, PAGE_SIZE));
 	}
 
-	else if(error_no & 0x1)
+	if (error_no == 0b001)
 	{	
 		/*
-		 * Page is present; No need to add a new page as of now.
+		 * Read Access not occuring on present page in Kernel mode
 		 */
-		if ((error_no & 0x3) == 0x3)
-    	{
-			/*
-			 * The Page is present, but there is a write protection fault
-			 */
-			if ((error_no & 0x7) == 0x7)
-			{
-				/*
-				 * User Mode trying to access Kernel; Not permitted.
-				 */
-				kprintf("Can't access Kernel Page\n");
-			}
-			else
-			{
-				/*
-				 * Kernel Mode caused page fault; Kernel panic; Shutdown.
-				 */
-				kshutdown();
-			}
-		}
-		else if ((error_no & 0x5) == 0x5)
-		{
-			/*
-			 * Write access not permitted on this COW page. Give a different page.
-			 */
-			uint64_t *new_addr = (uint64_t *) memmap((void *)addr, PAGE_SIZE, USR_PERM_BITS, SET_COW_RW);
-        	kmemcpy((void *)new_addr, (void *)addr, kstrlen((char *)addr));
-		}
-		else
-		{
-			kprintf("Kernel Panic\n");
-			kshutdown();
-		}
+		kprintf("Kernel Panic\n");
+		kshutdown();
 	}
-	else
+	if (error_no == 0b010)
 	{
-		struct vm_area_struct *vma_ptr = curr_upcb->mm->mmap;
-        uint64_t start, end;
-        while (vma_ptr != NULL)
-        {
-			dif_ctxt = 0;
-           	start = vma_ptr->vm_start;
-           	end = vma_ptr->vm_end;
-           	if (addr >= start && addr < end)
-           	{
-				memmap((void *) addr, PAGE_SIZE, USR_PERM_BITS, ACCESSED_NOT_PRESENT);
-           	}
-           	vma_ptr = vma_ptr->vm_next;
-		}	
-	}
-	/*
-	        uint64_t *new_addr = get_new_page();
-        	kmemcpy((void *)new_addr, (void *)addr, kstrlen((char *)addr));
-        	new_addr = (uint64_t *)((uint64_t)new_addr | USR_PERM_BITS);
-			
-        	struct vm_area_struct *vma_ptr = curr_upcb->mm->mmap;
-        	uint64_t start, end;
-        	while (vma_ptr != NULL)
-        	{
-				dif_ctxt = 0;
-            	start = vma_ptr->vm_start;
-            	end = vma_ptr->vm_end;
-            	if (addr >= start && addr < end)
-            	{
-                	add_user_page(upg, USR_PERM_BITS);
-                	break;
-            	}
-            	vma_ptr = vma_ptr->vm_next;
-        	}
-        	if (vma_ptr == NULL)
-        	{
-            	seg_fault = 1;
-        	}
-	
-		}
-		else
-		{
-			char *tmp = vma_data(&sz);
-			kmemcpy((char *)upg, (void *)tmp, sz);
-		}
-    }
-    else if (((uint64_t)addr & USR_PERM_BITS) != COW_PERM_BITS)
-    {
-        uint64_t *new_addr = get_new_page();
-        kmemcpy((void *)new_addr, (void *)addr, kstrlen((char *)addr));
-        new_addr = (uint64_t *)((uint64_t)new_addr | USR_PERM_BITS);
-    }    
-	else
-    {
-        seg_fault = 1;
-    }
+		/*
+		 * Write Access not occuring in a non-present page in Kernel mode
+		 */
+		uint64_t *pml = (uint64_t *)pml4_shared;
+		uint64_t *pdp = (uint64_t *)get_pdp(ROUNDDOWN(addr, PAGE_SIZE), get_pml4_offset(ROUNDDOWN(addr, PAGE_SIZE)));
+		uint64_t *pd = (uint64_t *)get_pd(ROUNDDOWN(addr, PAGE_SIZE), get_pdp_offset(ROUNDDOWN(addr, PAGE_SIZE)));
+		uint64_t *pt = (uint64_t *)get_pt(ROUNDDOWN(addr, PAGE_SIZE), get_pml4_offset(ROUNDDOWN(addr, PAGE_SIZE)));
+		*(pt + get_pt_offset(ROUNDDOWN(addr, PAGE_SIZE))) = ((*(pt + get_pt_offset(ROUNDDOWN(addr, PAGE_SIZE))) >> 12) << 12) | KERN_PERM_BITS;
 
-    if (seg_fault)
+		*(pd + get_pd_offset(addr)) = ((uint64_t)pt - VIRT_BASE);
+		*(pdp + get_pdp_offset(addr)) = ((uint64_t)pd - VIRT_BASE);
+    	*(pml + get_pml4_offset(addr)) = ((uint64_t)pdp - VIRT_BASE);
+
+		pdp_shared = (uint64_t)pdp;
+		pd_shared = (uint64_t)pd;
+		pt_shared = (uint64_t)pt;
+		tlb_flush(pml4_shared - VIRT_BASE);
+	}
+	if (error_no == 0b011)
     {
-        kshutdown();
-    }
-	*/
+		/*
+		 * Kernel faults while writing to a present page
+		 */
+		kprintf("Kernel Panic\n");
+		kshutdown();
+	}
+	if (error_no == 0b100)
+	{
+		/*
+		 * User not being able to read an unampped page
+		 */
+		memmap((void *)addr, PAGE_SIZE, COW_PERM_BITS, ACCESSED_NOT_PRESENT);
+	}
+	if (error_no == 0b101)
+	{
+		/*
+		 * The User is not able to read an unmapped page
+		 */
+		kprintf("Segfault\n");
+		exit_process(1);
+	}
+	if (error_no == 0b110)
+	{	
+		/*
+		 * User not able to write to a page that is not present
+		 */
+		memmap((void *)addr, PAGE_SIZE, USR_PERM_BITS, ACCESSED_NOT_PRESENT);
+	}
+	if (error_no == 0b111)
+	{
+		/*
+		 * User cannot write to a page that is present; COW
+		 */
+		memmap((void *)addr, PAGE_SIZE, USR_PERM_BITS, SET_COW_RW);
+	}
 }
 
 #endif

@@ -95,13 +95,14 @@ readdir(
         if (tar_e.addr_hdr == addr)
         {
             parent = i;
+			if (parent == -1);
             i++;
             dir = tar_e.name;
             len = kstrlen(dir);
             continue; 
         }
 
-        if ((0 == (kstrncmp(tar_e.name, dir, kstrlen(dir)))) && (tar_e.index == parent))
+        if ((0 == (kstrncmp(tar_e.name, dir, kstrlen(dir)))))// && (tar_e.index == parent))
         {
 			kprintf("%s\t", tar_e.name + len);
         }
