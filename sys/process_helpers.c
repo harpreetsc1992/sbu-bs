@@ -57,12 +57,12 @@ add_to_ready_list_user(
 	uint16_t uproc_count_list = process_count;
     if (1 == uproc_count_list)
     {
-        ready_queue[uproc_count_list - 1] = (uint64_t)pcb;
-		curr_upcb = (struct task_struct *) ready_queue[uproc_count_list - 1];
+        ready_queue[uproc_count_list - 1] = *pcb;
+		curr_upcb = &ready_queue[uproc_count_list - 1];
     }
     else
     {
-        ready_queue[uproc_count_list - 1] = (uint64_t)pcb;
+        ready_queue[uproc_count_list - 1] = *pcb;
     }
 }
 
@@ -70,11 +70,11 @@ void
 move_to_next_pcb(
 				)
 {
-	if ((process_count != 0) && (ready_queue[idx_pcb] != ready_queue[idx_pcb + 1]))
+	if ((process_count != 0) && (ready_queue[idx_pcb].pid != ready_queue[idx_pcb + 1].pid))
     {
         ready_queue[idx_pcb] = ready_queue[idx_pcb + 1];
 		idx_pcb++;
-		curr_upcb = (struct task_struct *) ready_queue[idx_pcb];
+		curr_upcb = &ready_queue[idx_pcb];
 #ifndef SCHEDULE_POLICY
     process_count--;
 #endif

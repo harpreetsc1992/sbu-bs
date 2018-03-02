@@ -18,10 +18,10 @@
 
 extern uint16_t p_id, ready_procs, proc_count_in_list;
 extern uint16_t upid;
-extern uint64_t ready_queue[NUM_PROCS];
-extern uint16_t process_count;
+extern uint16_t process_count, zom_count;
+extern uint64_t zombies[NUM_PROCS];
 extern char curr_file[NAMEMAX];
-
+extern struct task_struct *global_child;
 extern uint64_t pml_same_ctxt; 
 /*
  * index for current user pcb for ready_queue
@@ -38,6 +38,11 @@ extern uint32_t child_pid;
 struct PCB *curr_pcb;
 struct task_struct *curr_upcb;
 
+struct context
+{
+	uint64_t rip, rsp;
+};
+
 typedef enum 
 { 
 	WAIT, 
@@ -47,11 +52,6 @@ typedef enum
 	DEAD,	
 	ZOMBIE 
 } proc_state_t;
-
-struct context
-{
-	uint64_t rip, rsp;
-};
 
 struct vm_area_struct
 {
@@ -90,12 +90,13 @@ struct vm_area_struct
  */
 struct task_struct
 {
-	uint64_t kstack[USR_STACK_SZ];   
-	proc_state_t state;
-	struct context ctx;
-	uint64_t counter;	//how long its run;
 	uint64_t pid;		//my id;
 	uint64_t ppid;		//my parent pid   
+	char pname[16];		//process name
+	uint64_t kstack[USR_STACK_SZ];   
+	proc_state_t state;
+	struct regs ctx;
+	uint64_t counter;	//how long its run;
 	uint64_t wait_pid;	//wait pid of the child; 0 if not waiting on the child
 	uint64_t priority;	// when should it run
 	uint64_t *stack;	// its own stack 
@@ -105,12 +106,12 @@ struct task_struct
 	int exit_status; 	// exit status
 	int sleep_time;
 	uint64_t entry;
-	char pname[100];	//process name
 	struct mm_struct *mm;	// a pointer to mm_struct
 	struct vm_area_struct *heap_vma;	// vma for heap
 };
 
-struct task_struct zombie_queue[NUM_PROCS];
+extern struct task_struct *zombie_queue;
+extern struct task_struct *ready_queue;
 
 /*
  * kernel PCB structure
@@ -124,6 +125,10 @@ struct PCB
 	int exit_status;
 	struct PCB *next;
 };
+
+void
+init_queues(
+		   );
 
 void
 dispatch(
@@ -235,6 +240,11 @@ syswaitpid(
            int pid,
            int status
        	  );
+
+void
+kill_process(
+			 uint64_t pid
+			);
 
 void
 dp(

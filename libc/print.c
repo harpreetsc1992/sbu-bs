@@ -52,12 +52,11 @@ vsprintf(
                 break;
             case 'd': /* If it's a decimal number */
                     value = (unsigned long) va_arg(args, unsigned long);
-                    j = 9;
-                    while (j > 0)
+                    while (value > 0)
                     {
                         unsigned int n = value / 10;
                         int r = value % 10;
-                        buf[ptr + j - 1] = r + '0';
+                        buf[ptr++] = r + '0';
                         j--;
                         value = n;
                     }

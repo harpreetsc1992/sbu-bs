@@ -1,12 +1,23 @@
 #include <sys/tarfs.h>
 #include <sys/timer.h>
 #include <sys/init.h>
+#include <sys/kern_ops.h>
 
 uint32_t child_pid;
 uint16_t p_id, ready_procs;
 uint16_t upid;
-uint64_t ready_queue[NUM_PROCS];
-uint16_t process_count;
+uint64_t zombies[NUM_PROCS];
+uint16_t process_count, zom_count;
+struct task_struct *zombie_queue, *ready_queue;
+struct task_struct *global_child;
+
+void
+init_queues(
+		   )
+{
+	zombie_queue = kmalloc(NUM_PROCS * sizeof(struct task_struct));
+	ready_queue = kmalloc(NUM_PROCS * sizeof(struct task_struct));
+}
 
 struct vm_area_struct *
 malloc_vma(
@@ -129,7 +140,8 @@ load_segment(
 			tmp = tmp->vm_next;  // go to the last vma
 		}
 		
-		pcb->heap_vma->vm_start = pcb->heap_vma->vm_end = ALIGN_DOWN((uint64_t)(tmp->vm_end + PAGE_SIZE));
+//		pcb->heap_vma->vm_start = pcb->heap_vma->vm_end = ALIGN_DOWN((uint64_t)(tmp->vm_end + PAGE_SIZE));
+		pcb->heap_vma->vm_start = pcb->heap_vma->vm_end = 0x6e000 + ALIGN_DOWN((uint64_t)(tmp->vm_end + 100 * PAGE_SIZE));
 		pcb->heap_vma->vm_mmsz = PAGE_SIZE;
 		
 		allocate_regions((void *)pcb->heap_vma->vm_start, pcb->heap_vma->vm_mmsz);
@@ -160,34 +172,54 @@ exec(
 	char *tmp_pathname = file;
 	char pathname[32];
 	kstrcpy(pathname, tmp_pathname);
-	int index = 1;
-	struct task_struct *pcb = (struct task_struct *)create_usr_pcb(pathname);
-
-	if (NULL != argv)
+	int index = 0;
+//	int j = 0;
+	char tmp_arg[24];
+	if (argv[0] != NULL)
 	{
-		char *_tmp = *argv;
-		while (*_tmp != '\0')
-		{
-			if (*_tmp++ == ' ')
-			{
-				index++;
-			}	
-		}
-	}	
+		kstrcpy(tmp_arg, argv[0]);
+		index = 1;
+	}
+ 
+//	while (NULL != argv[j])
+//	{
+//		j++;
+//		index++;
+//	}	
 
+	struct task_struct *pcb = global_child;
+	load_segment(pcb, pathname, 0);
+	memset(pcb->pname, 0, kstrlen(pcb->pname));
+	kstrncpy(pcb->pname, pathname, kstrlen(pathname));
+	process_count++;
+// (struct task_struct *)create_usr_pcb(pathname);
+	add_to_ready_list_user(pcb);
+	kstrcpy(argv[0], tmp_arg);
 	*((uint64_t *)((uint64_t)pcb->stack - 0x8)) = (uint64_t)index;
 	int tmp = index;
-	int i = 2;
-	while (--tmp > 0)
+	int i = 10;
+	if (tmp == 1 || tmp == 0)
 	{
-		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)argv[i - 2];
+//		kstrcpy(((char *)((uint64_t)pcb->stack - (0x8 * i))), argv[i - 2]);
+//		kstrcpy(((char *)((uint64_t)pcb->stack - (0x8 * i))), tmp_arg);
+		*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)argv[i - 10];
+//		*((char *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)&args[i - 2];
+//		*(uint64_t *)((uint64_t)pcb->stack - 0x8 * i) = (uint64_t)&tmp_arg[i - 2];
 		i++;
 	}
+//	while (tmp-- > 0)
+//	{
+//		kstrcpy(((char *)((uint64_t)pcb->stack - (0x8 * i))), argv[i - 2]);
+//		*((char *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)argv[i - 2];
+//		*((char *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)&args[i - 2];
+//		i++;
+//	}
 	if (NULL != envp)	*((uint64_t *)((uint64_t)pcb->stack - (0x8 * i))) = (uint64_t)*envp;
+//		kstrcpy(((char *)((uint64_t)pcb->stack - (0x8 * i))), *envp);
 	
-	struct task_struct *current_pcb = curr_upcb;
+//	struct task_struct *current_pcb = curr_upcb;
+//	pcb->ppid = current_pcb->pid;
 	
-	pcb->ppid = current_pcb->pid;
 	curr_upcb = pcb;
 	uint64_t user_entry = pcb->entry;
 	enter_usermode(user_entry, (uint64_t) pcb->stack);
@@ -218,9 +250,6 @@ fork_process(
 	child_pcb->ppid = parent_pcb->pid;
 	
 	child_pcb->state = READY;
-
-	add_to_ready_list_user(child_pcb);
-	
 	kmemcpy(child_pcb->pname, parent_pcb->pname, kstrlen(parent_pcb->pname));        
 	
 	child_pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, GROWS_DOWN);
@@ -285,6 +314,7 @@ fork_process(
 	
 	/* switch back to caller address space before we return */
 	tlb_flush((uint64_t)parent_pcb->cr3);
+	global_child = child_pcb;
 //	child_pcb = (struct task_struct *) memmap((void *) child_pcb, sizeof(struct task_struct), COW_PERM_BITS, RW_TO_COW);
 //	child_pcb->stack = memmap((void *) ((uint64_t) child_pcb->stack - PAGE_SIZE), PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
 //	child_pcb->heap_vma	= (struct vm_area_struct *)memmap((void *) child_pcb->heap_vma, PAGE_SIZE, COW_PERM_BITS, RW_TO_COW);
@@ -294,29 +324,30 @@ fork_process(
 void
 exit_process(
 	 		 int state
-			)  
+			)
 {
-	curr_upcb->state = ZOMBIE;  
+	curr_upcb->state = ZOMBIE;
 	zombie_queue[curr_upcb->pid].exit_status = state;
-
+	zombie_queue[curr_upcb->pid] = *curr_upcb;
+	zombies[zom_count] = curr_upcb->pid;
   	// now update the ready_queue and process_count
   	// we are sure that current running process is "next" 
 
 	int i = 1;         
 	while (i <= process_count)  //find the pcb in ready_queue 
     { 
-		if (ready_queue[i] == (uint64_t)curr_upcb)
+		if (ready_queue[i].pid == curr_upcb->pid)
 		{ 
 			break;
 		}
-		i++; 
+		i++;
     }
            
     if (i < process_count)  // update the ready_queue 
     {
 		while ((i + 1) <= process_count)
 		{
-			ready_queue[i] =  ready_queue[i+1];
+			ready_queue[i] = ready_queue[i+1];
 			i++;
 		}
     }
@@ -327,15 +358,14 @@ exit_process(
 	int j = 0;
 	while (j < process_count)
 	{
-		if (((struct task_struct *) ready_queue[j])->pid == curr_upcb->ppid)
+		if (ready_queue[j].pid == curr_upcb->ppid)
 		{
-//			curr_upcb = (struct task_struct *) ready_queue[j];
-			curr_upcb = shell_pcb;
+			curr_upcb = &ready_queue[j];
+//			curr_upcb = shell_pcb;
 			break;
 		}
 		j++;
 	}
-
 //	TODO: free(curr_upcb);
  
 	/* 
@@ -353,6 +383,40 @@ exit_process(
 			"jmp *%rax\t\n"
 			); 
 } 
+
+void 
+kill_process(
+			 uint64_t pid
+			)
+{
+	int i = 0;
+	struct task_struct *kill_proc = curr_upcb;
+	if (pid <= 0)
+	{
+		kprintf("Failed to kill the process\n");
+	}
+	while (i != pid && i < pid)
+	{
+		i++;
+	}
+	if (i == pid)
+	{
+		if (ready_queue[i].pid == pid)
+		{
+			curr_upcb = &ready_queue[i];
+			exit_process(1);
+		}
+		else
+		{
+			kprintf("Wrong pid\n");
+		}
+	}
+	else
+	{
+		kprintf("Cannot find the process\n");
+	}
+	curr_upcb = kill_proc;
+}
 
 uint64_t
 _sleep(
@@ -402,7 +466,7 @@ malloc(
 	struct task_struct *pcb = curr_upcb;
 	uint64_t old = pcb->heap_vma->vm_end;
 	pcb->heap_vma->vm_end = pcb->heap_vma->vm_end + size;   
-
+	*(uint64_t *) old = 0;
 	if (pcb->heap_vma->vm_end - pcb->heap_vma->vm_start > PAGE_SIZE)
 	{
 		return NULL;
@@ -421,12 +485,12 @@ syswaitpid(
 	struct task_struct *child_pcb;
 	uint64_t ppid = pcb->pid;
 	int i = 1;
-	child_pcb = (struct task_struct *)ready_queue[i];
+	child_pcb = &ready_queue[i];
 	if (pid < 0) //find any child and check for the status
 	{
 		for (i = 1; i <= process_count; i++)
 		{
-			child_pcb = (struct task_struct *)ready_queue[i];
+			child_pcb = &ready_queue[i];
 			if(child_pcb->ppid == ppid )
 			{
 			    pcb->wait_pid = child_pcb->pid;
@@ -458,7 +522,7 @@ syswaitpid(
 	{
 		for (i = 1; i <= process_count; i++)
 		{
-			child_pcb = (struct task_struct *)ready_queue[i];
+			child_pcb = &ready_queue[i];
 			if (child_pcb->pid == pid)	// found the child
 		    {
 				pcb->state = WAIT;
@@ -500,9 +564,13 @@ dp(
 	int i;
 	for(i = 0; i < process_count; i++)
 	{
-		pcb = (struct task_struct *)ready_queue[i];
+		pcb = &ready_queue[i];
 		kprintf("pid %d ppid %d name %s\n", pcb->pid, pcb->ppid, pcb->pname);
-	} 
+	}
+	while (i < NUM_PROCS)
+	{
+		
+	}
 }
 
 void

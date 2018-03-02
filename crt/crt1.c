@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 void _start(uint64_t *stack) {
 	char **argv;
@@ -12,7 +13,7 @@ void _start(uint64_t *stack) {
 			);
 
 	argc = (int)*((uint64_t *)((uint64_t)stack - 0x8));
-	int last = 3;
+	int last = 10;
 	
 	argv = NULL;
 	envp = NULL;
@@ -20,11 +21,12 @@ void _start(uint64_t *stack) {
 	int tmp = argc;
 	if (0 == argc || 1 == argc)	
 	{
-			argv = (char **)((uint64_t)stack - 0x10);
-			*(argv + 1) = *(char **)((uint64_t)stack - 0x10);
+			argv = (char **)((uint64_t)stack - 0x8 * last);
+			*argv = (char *)*(char **)((uint64_t)argv);
+//			argv[0] = *argv;//(char *)*((uint64_t *)((uint64_t)stack - 0x10));
 			last++;
-			envp = (char **)((uint64_t)stack - 0x18);
-			*envp = *(char **)((uint64_t)stack - 0x18); 
+			envp = (char **)((uint64_t)stack - 0x8 * last);
+//			*envp = (char *)*((uint64_t)envp); 
 	}
 	else
 	{
@@ -37,7 +39,12 @@ void _start(uint64_t *stack) {
 		envp = (char **)((uint64_t)stack - (0x8 * last));
 		*envp = (char *)((uint64_t)stack - (0x8 * last)); 
 	}
-
+/*
+	__asm__ __volatile__(
+				"mov %0, %%rbx\t\n"
+				:: "r" ((uint64_t)*argv)
+				);
+*/
 //	__asm__ volatile(
 //			"mov %0, %%rbx\t\n"
 //			:: "r" (stack)

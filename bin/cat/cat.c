@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <sys/tarfs.h>
 #include <stdlib.h>
-#include <sys/timer.h>
 
 int
 main(
@@ -14,7 +13,11 @@ main(
 	)
 {
 	char str[32];
-    strcpy(str, argv[1]);
+/*	__asm__ __volatile__(
+				"mov %%rbx, %0\t\n"
+				: "=r" (argv[0])
+				);
+*/  strcpy(str, (char *)argv[0]);
 	printf ("%s\n", str);
     int len = strlen(str);
     FILE *fd;

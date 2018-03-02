@@ -64,6 +64,7 @@ void boot(void)
   set_up_idt();
   init_tarfs();
 //  checkAllBuses();
+	init_queues();
 	create_pcb(idle);
 	create_pcb(init_entry);
 	idle();

@@ -47,6 +47,14 @@ getppid(
 	return __syscall0(9);
 }
 
+void
+kill(
+	 int pid
+	)
+{
+	__syscall1(20, (uint64_t) pid);
+}
+
 int
 execvpe(
 		const char *file, 

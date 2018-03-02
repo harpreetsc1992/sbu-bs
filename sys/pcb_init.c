@@ -1,3 +1,4 @@
+#include <sys/memory.h>
 #include <utils.h>
 #include <sys/process.h>
 #include <sys/page_alloc.h>
@@ -16,15 +17,16 @@ init_usr_pcb(
 	pcb->mm->count = 0;
 	pcb->mm->mmap = NULL;
 
-	if (upid == 0)	pcb->pid = ++upid;
+	if (upid == 0)	pcb->pid = upid = 1;
+	else			pcb->pid = upid;
 	pcb->ppid = upid - 1;
 	pcb->state = READY;
 
 	kmemcpy(pcb->pname, file_name, kstrlen((char *)file_name));
 	process_count++;
-	add_to_ready_list_user(pcb);
 
 	pcb->stack = memmap(NULL, PAGE_SIZE, USR_PERM_BITS, GROWS_DOWN);
+	memset((void *)((uint64_t)pcb->stack-PAGE_SIZE), 0, PAGE_SIZE);
 	dif_ctxt = 0;
 
 	pcb->pml4e = (uint64_t)pml4_shared;
@@ -49,7 +51,7 @@ init_usr_pcb(
     pcb->kstack[507] = (uint64_t)pcb->entry;
 	
     tlb_flush(pml4_shared - VIRT_BASE);
-
+	if (pcb->pid == 1)	add_to_ready_list_user(pcb);
     return pcb;
 }
 
