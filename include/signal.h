@@ -3,7 +3,7 @@
 
 #include <sys/defs.h>
 
-int kill(int pid);
+void kill(uint64_t pid);
 
 // OPTIONAL: implement for ``signals and pipes (+10 pts)''
 typedef void (*sighandler_t)(int);

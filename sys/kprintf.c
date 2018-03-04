@@ -55,6 +55,22 @@ vasprintf(
             case 'd': /* If it's a decimal number */
                     value = (unsigned long) va_arg(args, unsigned long);
                     //j = 9;
+/*					int ii = 0;
+					while (value != 0)
+    				{
+        				buf[ii++] = '0' + (value % 10);
+        				value /= 10;
+    				}
+
+    				// Reverse the string
+    				for (j = 0; j < ii/2; j++) 
+					{
+        				char temp = buf[j];
+        				buf[j] = buf[ii - 1 - j];
+        				buf[ii - 1 - j] = temp;
+    				}
+
+*/
                     while (value > 0)
                     {
                         unsigned int n = value / 10;

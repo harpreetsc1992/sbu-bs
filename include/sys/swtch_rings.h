@@ -6,6 +6,7 @@
 #include <sys/page_alloc.h>
 
 extern void jmp_usrmode();
+extern unsigned short first_boot;
 
 void
 initiate_jmp(

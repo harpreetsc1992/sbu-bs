@@ -6,6 +6,7 @@
 char curr_file[NAMEMAX];
 struct task_struct *shell_pcb;
 uint64_t shell_entry;
+unsigned short first_boot = 1;
 
 void
 enter_usermode(
@@ -13,7 +14,11 @@ enter_usermode(
 			   uint64_t stack
 			  )
 {
-	clear_screen();
+	if (first_boot)
+	{
+		clear_screen();
+		first_boot = 0;
+	}
     jmp_usrmode(user_entry, stack);
 }
 

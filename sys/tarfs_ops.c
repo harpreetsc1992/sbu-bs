@@ -1,6 +1,7 @@
 #include <sys/tarfs.h>
 #include <sys/k_utils.h>
 #include <stdio.h>
+#include <sys/fs.h>
 
 char *
 vma_data(
@@ -51,6 +52,10 @@ opendir(
     {
         tar_e = tarfs_fs[i];
         i++;
+		if (!kstrlen(dir))
+		{
+			return 0;
+		}
 		
         if (0 == kstrlen(tar_e.name))
 		{
@@ -63,8 +68,7 @@ opendir(
 		}
     }
 
-    kprintf("\tNo such directory \n");
-    kprintf("%s\n", dir);
+    kprintf("\nNo such directory \n");
 
     return 0;
 }
@@ -75,14 +79,21 @@ readdir(
 	   )
 {
     tarfs_entry tar_e;
-    char *dir;
+    char dir[8];
     int i = 0, parent = -1, len = 0;
-/*
-    if (addr == 999)
+
+	kprintf("\n");
+	if (addr == 0)
 	{
-        parent = 999; 
+		while(i < num_dentries)
+		{
+			if (dent[i].d_parent == NULL)
+			{
+				kprintf("%s\t", dent[i].filename);
+			}
+			i++;
+		}
 	}
-*/
     while (1)
     {
         tar_e = tarfs_fs[i];
@@ -97,7 +108,7 @@ readdir(
             parent = i;
 			if (parent == -1);
             i++;
-            dir = tar_e.name;
+            kstrcpy(dir, tar_e.name);
             len = kstrlen(dir);
             continue; 
         }
@@ -108,6 +119,7 @@ readdir(
         }
         i++;
     }
+	kprintf("\n");
 
     return tarfs_fs[i].addr_hdr;
 }
@@ -120,7 +132,35 @@ openfile(
 	FILE *fd = (FILE *)kmalloc(sizeof(FILE));//kmalloc(sizeof(FILE));
 	tarfs_entry tar_e;
 	int i = 0;
-
+/*
+	if (NULL != file)
+	{
+		while (i < num_dentries)
+		{
+			if (!kstrcmp(dent[i].filename, file))
+			{
+				if (dent[i].d_parent == NULL)
+				{
+					int j = 0;
+					while (1)
+					{
+						tar_e = tarfs_fs[j];
+						if (!kstrncmp(tar_e.name, dent[i].filename, kstrlen(tar_e.name)))
+						{
+							kstrcpy(fd->filename, file); 
+							fd->inode_num = i - 1;
+							fd->offset = 0;
+							fd->address = tar_e.addr_hdr;
+							return fd;
+						}
+						j++;
+					}
+				}
+			}
+			i++;
+		}
+	}
+*/
 	char *filename = (file + 4);
 
 	while (1)
@@ -170,8 +210,8 @@ readfile(
 
 	if (0 == file_addr)
 	{
-        buf = (uint64_t) gets((char *) buf);
-		return buf; 
+        bytes = (uint64_t) gets((char *) buf);
+		return bytes; 
 	}
 
 	file_hdr = (struct posix_header_ustar *) file_addr->address;

@@ -5,6 +5,6 @@
 
 int main(int argc, char **argv, char **envp)
 {
-	ps();
+	clear();
 	return 0;
 }

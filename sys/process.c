@@ -175,12 +175,14 @@ exec(
 	int index = 0;
 //	int j = 0;
 	char tmp_arg[24];
-	if (argv[0] != NULL)
+	if (NULL != argv)
 	{
-		kstrcpy(tmp_arg, argv[0]);
-		index = 1;
-	}
- 
+		if (argv[0] != NULL)
+		{
+			kstrcpy(tmp_arg, argv[0]);
+			index = 1;
+		}
+ 	}
 //	while (NULL != argv[j])
 //	{
 //		j++;
@@ -194,11 +196,11 @@ exec(
 	process_count++;
 // (struct task_struct *)create_usr_pcb(pathname);
 	add_to_ready_list_user(pcb);
-	kstrcpy(argv[0], tmp_arg);
+	if (NULL != argv)	kstrcpy(argv[0], tmp_arg);
 	*((uint64_t *)((uint64_t)pcb->stack - 0x8)) = (uint64_t)index;
 	int tmp = index;
 	int i = 10;
-	if (tmp == 1 || tmp == 0)
+	if ((tmp == 1 || tmp == 0) && (NULL != argv))
 	{
 //		kstrcpy(((char *)((uint64_t)pcb->stack - (0x8 * i))), argv[i - 2]);
 //		kstrcpy(((char *)((uint64_t)pcb->stack - (0x8 * i))), tmp_arg);
@@ -329,7 +331,8 @@ exit_process(
 	curr_upcb->state = ZOMBIE;
 	zombie_queue[curr_upcb->pid].exit_status = state;
 	zombie_queue[curr_upcb->pid] = *curr_upcb;
-	zombies[zom_count] = curr_upcb->pid;
+	if (state)	zombies[zom_count] = curr_upcb->pid;
+	else	zombies[++zom_count] = curr_upcb->pid;
   	// now update the ready_queue and process_count
   	// we are sure that current running process is "next" 
 
@@ -352,8 +355,22 @@ exit_process(
 		}
     }
 
-	process_count--;
-	upid--;
+	if (state == 1)
+	{
+		int z = 0;
+		while (z <= zom_count)
+		{
+			if (zombie_queue[zombies[z]].pid == curr_upcb->pid)
+			{
+				zombie_queue[zombies[z]] = zombie_queue[zombies[z] + 1];
+				z++;
+			}
+			z++;
+		}
+		zom_count--;
+		return;
+	}
+	else	process_count--;
 	
 	int j = 0;
 	while (j < process_count)
@@ -393,7 +410,8 @@ kill_process(
 	struct task_struct *kill_proc = curr_upcb;
 	if (pid <= 0)
 	{
-		kprintf("Failed to kill the process\n");
+		kprintf("\nFailed to kill the process\n");
+		goto end_process;
 	}
 	while (i != pid && i < pid)
 	{
@@ -401,20 +419,21 @@ kill_process(
 	}
 	if (i == pid)
 	{
-		if (ready_queue[i].pid == pid)
+		if (zombie_queue[i].pid == pid)
 		{
-			curr_upcb = &ready_queue[i];
+			curr_upcb = &zombie_queue[i];
 			exit_process(1);
 		}
 		else
 		{
-			kprintf("Wrong pid\n");
+			kprintf("\nWrong pid\n");
 		}
 	}
 	else
 	{
 		kprintf("Cannot find the process\n");
 	}
+end_process:
 	curr_upcb = kill_proc;
 }
 
@@ -565,11 +584,14 @@ dp(
 	for(i = 0; i < process_count; i++)
 	{
 		pcb = &ready_queue[i];
-		kprintf("pid %d ppid %d name %s\n", pcb->pid, pcb->ppid, pcb->pname);
+		kprintf("\npid %d ppid %d name %s\n", pcb->pid, pcb->ppid, pcb->pname);
 	}
-	while (i < NUM_PROCS)
+	i = 0;
+	while (i < zom_count)
 	{
-		
+		pcb = &zombie_queue[zombies[i]];
+		kprintf("pid %d ppid %d name %s\n", pcb->pid, pcb->ppid, pcb->pname);
+		i++;
 	}
 }
 
@@ -582,9 +604,9 @@ clear_screen(
 		for (int j = 0; j <= VERT_BITS; j++)
 		placechar(' ', i, j, 0x7);
 	}
-	placechar(' ', 0, 0, 0x7);
+	placechar('\0', 0, 0, 0x7);
 	
-	kprintf("sbush> ");
+//	kprintf("sbush> ");
 }
 
 void

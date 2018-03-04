@@ -41,7 +41,7 @@ get_file(
 		 char *buf
 		)
 {
-	char path[32];
+	char path[16];
 	char *pwd = "bin/";
 	strcpy(path, pwd);
 	int path_len = strlen(path);
@@ -58,7 +58,7 @@ get_file(
 	}
 	path[path_len] = '\0';
 	
-	FILE* fd = open("bin/ls");//path + 1);
+	FILE* fd = open(path);//path + 1);
 	if (fd) return 1;
 		
 //	if (fd != 0)
@@ -82,6 +82,8 @@ execute_command(
 	if (pwd);
 	if ((strncmp(cmd, "ls", 2)) == 0)
 	{
+		char *file = malloc(16); 
+		strcpy(file, arg);
 		int pid = fork();
 		if (pid != 0)
 		{
@@ -98,7 +100,7 @@ execute_command(
     	} 
 		else 
 		{
-        	execvpe("bin/ls", NULL, NULL);
+        	execvpe("bin/ls", &file, NULL);
         	exit(1);
 		}	
 	}
@@ -154,57 +156,9 @@ execute_command(
 	}  
 	else if ((strncmp(cmd, "sleep", 5)) == 0)
 	{
-		printf("\n");
-		char *str = trim(cmd + 5);
-		if (*str != '\0')
-		{
-			int ticks = stoi(str);
-			sleepshell(ticks);
-		}
-	}
-	else if ((strncmp(cmd, "echo", 4)) == 0)
-	{
-//		char **text = malloc(10 * sizeof(char *));
-		char *tmp = malloc(16);
-		strcpy(tmp, arg); 
-//		char tmp[16];
-//		char *tmp1;
-//		strcpy(tmp, arg);
-/*		int count = 0, i = 0;
-		int len[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-		printf("In echo\n");
-		while (*arg != '\0')
-		{
-			if ((*arg == ' ') && (*(arg + 1) != '\0')) 
-			{
-				count++;
-			}
-			else
-			{
-				len[count]++;
-			}
-			arg = arg + 1;
-		}
-		for (int se = 0; se <= count; se++)
-		{
-			text[se] = malloc(8);
-		}
-		while (i <= count)
-		{
-			tmp1 = text[i];
-			while (*tmp == ' ')
-			{
-				tmp++;
-			}
-			while (len[i]--)
-			{
-				*tmp1++ = *tmp++;
-			}
-			*(tmp1) = '\0';
-			printf("%s\n", text[i]);
-			i++;
-		}
-*/		int pid = fork();
+		char *str = malloc(8);
+		strcpy(str, arg);	
+		int pid = fork();
 		if (pid != 0)
 		{
         	if (bg_flag != '&') 
@@ -219,17 +173,37 @@ execute_command(
     	} 
 		else 
 		{
-//			printf("%s\n", text[0]);
-//			printf("%s\n", text[1]);
-//			printf("%s\n", text[2]);
-//			printf("%s\n", tmp);
-        	execvpe("bin/echo", &tmp, NULL);
+	       	execvpe("bin/sleep", &str, NULL);
+        	exit(1);
+		}
+	}
+	else if ((strncmp(cmd, "echo", 4)) == 0)
+	{
+		char *tmp = malloc(16);
+		strcpy(tmp, arg); 
+		int pid = fork();
+		if (pid != 0)
+		{
+        	if (bg_flag != '&') 
+			{
+            	waitpid(pid, 0);
+        	}
+			else 
+			{
+				printf("Background Process\n");
+            	return;
+        	}
+    	} 
+		else 
+		{
+	       	execvpe("bin/echo", &tmp, NULL);
         	exit(1);
 		}
 	}
 	else if ((strncmp(cmd, "kill", 4)) == 0)
 	{
-		char *flag = &cmd[5];
+		char *tmp = malloc(16);
+		strcpy(tmp, arg); 
 
 		int pid = fork();
 		if (pid != 0)
@@ -246,13 +220,34 @@ execute_command(
     	} 
 		else 
 		{
-        	execvpe("bin/kill", &flag, NULL);
+        	execvpe("bin/kill", &tmp, NULL);
         	exit(1);
 		}	
 	}
+	else if ((strncmp(cmd, "clear", 4)) == 0)
+	{
+		int pid = fork();
+		if (pid != 0)
+		{
+        	if (bg_flag != '&') 
+			{
+            	waitpid(pid, 0);
+        	}
+			else 
+			{
+				printf("Background Process\n");
+            	return;
+        	}
+    	} 
+		else 
+		{
+        	execvpe("bin/clear", NULL, NULL);
+        	exit(1);
+		}	
+	}	
 	else if ((strncmp(cmd, "help", 4)) == 0)
 	{
-	    printf("\nSupported commands are: ls, cat, echo, sleep, ps, help");
+	    printf("ls, cat, echo, sleep, ps, kill, clear\n");
 	}
 
 	else
@@ -263,67 +258,34 @@ execute_command(
 
 int main(int argc, char *argv[], char *envp[]) 
 {
-	char input[16];
+	char *input = malloc(32);
 	char bg_flag;
+	int bytes;
 	while ((strncmp(input, "exit", 4)) != 0)
 	{
-//		scanf("%s", input);
-		strcpy(input, "ps");
+		int i = 0;
+		printf("sbush> ");
+		bytes = read(STDIN, (char *) input, 0);
+		
+		if (input[0] == '\n' || input[0] == ' ' || input[0] == '\0' || bytes == 0) continue;	
 		int len = strlen(input);
 		bg_flag = input[len - 1];
-		if ((strncmp(input, "sh ", 3)) == 0)
+		while (input[i] != ' ')
 		{
-//			printf("\n");
-			char *str = trim(input + 2);
-			char buf[16];
-			int file_exists = get_file(str, buf);
-			if (file_exists)
+			if (input[i] == '\0')
 			{
-				int i;
-				char temp[10];
-				int k =0;
-				int first = 0;
-				for (i = 0; i < 16; i++)
-				{
-					if (buf[i] == '\0')
-					{
-					    break;
-					}
-					else if (buf[i] == '\n')
-					{
-						temp[k] = '\0';
-						k = 0;
-						if (first == 0)
-						{
-							if (strcmp(trim(temp), "#!/bin/sh") != 0)
-							{
-								break;
-							}
-							else
-							{
-								first = 1;
-							}
-						}
-						else
-						{
-							execute_command(trim(temp), "", bg_flag);
-						}
-					}
-					else
-					{
-						temp[k++] = buf[i];
-					}
-				}
+				break;
 			}
+			i++;
 		}
-	    else
-		{
-			char *str = input;//trim(input + 2);
-            char buf[16];
-
-			int file_exists = get_file(str, buf);
-			if(file_exists) execute_command("cat", "/bin/test", '\0');//bg_flag);    
-		}
+		char *str = malloc(6);
+		strncpy(str, input, i);
+		char *arg = malloc(16);
+		strncpy(arg, (char *)(input + i + 1), len - i + 1);
+		
+        char buf[16];
+		int file_exists = get_file(str, buf);
+		if(file_exists) execute_command(str, arg, bg_flag);    
 	}
     printf("\nExiting...");
     exit(-1);

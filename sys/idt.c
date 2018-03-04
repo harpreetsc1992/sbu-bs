@@ -13,7 +13,7 @@ isr_handler(
 			regs_t reg
 		   )
 {
-	if (reg.int_no == 32 && reg.int_no == 33)
+	if (reg.int_no == 32 || reg.int_no == 33)
 	{
 		irq_handler(reg);
 		return;

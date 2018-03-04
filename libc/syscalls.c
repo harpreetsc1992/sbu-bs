@@ -49,10 +49,10 @@ getppid(
 
 void
 kill(
-	 int pid
+	 uint64_t pid
 	)
 {
-	__syscall1(20, (uint64_t) pid);
+	__syscall1(21, (uint64_t) pid);
 }
 
 int
@@ -141,4 +141,11 @@ sleepshell(
 		  )
 {
 	__syscall1(18, ticks);
+}
+
+void
+clear(
+	 )
+{
+	__syscall0(22);
 }

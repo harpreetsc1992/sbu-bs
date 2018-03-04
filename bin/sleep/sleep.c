@@ -7,18 +7,9 @@
 
 int main(int argc, char **argv, char **envp)
 {
-	int j = 0;
-	while (argv[0][j] != ' ')
-	{
-		if ('\0' != (argv[0][j + 1]))
-			j++;
-		else 
-			break;
-	}
-	char *pid = &(argv[0][j + 1]);
-	int id = stoi(pid);
-
-	kill((uint64_t)id);
-	
+	printf("\n");
+	char *time = argv[0];
+    uint64_t ticks = stoi(time);
+    sleepshell(ticks);
 	return 0;
 }

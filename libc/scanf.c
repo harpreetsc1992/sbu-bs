@@ -5,15 +5,18 @@
 #include <memory.h>
 #include <utils.h>
 #include <stdlib.h>
+#include <string.h>
 
 void 
 scanf(
-	  const char *str, 
-	  ...
+	  char *str
 	 )
 {
-	char *read_buf = malloc(64);
-    uint32_t len;
+//	char *read_buf = malloc(64);
+	char *read_buf = malloc(32);
+	int bytes = read(STDIN, (char *) read_buf, 0);
+	strncpy(str, read_buf, bytes);
+/*    uint32_t len;
     va_list arg;
     const char *ptr = NULL;
     va_start(arg, str);
@@ -49,4 +52,5 @@ scanf(
         }
     }
     va_end(arg); 
+*/
 }

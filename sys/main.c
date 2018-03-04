@@ -8,6 +8,9 @@
 #include <sys/process.h>
 #include <sys/idt.h>
 #include <sys/init.h>
+#include <sys/timer.h>
+#include <sys/pic.h>
+#include <sys/kb.h>
 
 #define INITIAL_STACK_SIZE 4096
 #define VIDEO_MEM 0xB8000
@@ -61,10 +64,17 @@ void boot(void)
     temp1 += 1, temp2 += 2
   ) *temp2 = *temp1;
 
+	__asm__ __volatile__(
+			"cli\t\n"
+			);
+
   set_up_idt();
+	init_pic();
+	init_timer();
   init_tarfs();
 //  checkAllBuses();
 	init_queues();
+	init_kbd();
 	create_pcb(idle);
 	create_pcb(init_entry);
 	idle();

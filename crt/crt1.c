@@ -23,10 +23,8 @@ void _start(uint64_t *stack) {
 	{
 			argv = (char **)((uint64_t)stack - 0x8 * last);
 			*argv = (char *)*(char **)((uint64_t)argv);
-//			argv[0] = *argv;//(char *)*((uint64_t *)((uint64_t)stack - 0x10));
 			last++;
 			envp = (char **)((uint64_t)stack - 0x8 * last);
-//			*envp = (char *)*((uint64_t)envp); 
 	}
 	else
 	{
@@ -39,17 +37,7 @@ void _start(uint64_t *stack) {
 		envp = (char **)((uint64_t)stack - (0x8 * last));
 		*envp = (char *)((uint64_t)stack - (0x8 * last)); 
 	}
-/*
-	__asm__ __volatile__(
-				"mov %0, %%rbx\t\n"
-				:: "r" ((uint64_t)*argv)
-				);
-*/
-//	__asm__ volatile(
-//			"mov %0, %%rbx\t\n"
-//			:: "r" (stack)
-//			);
-	
+
 	res = main(argc, argv, envp);
 
 	exit(res);

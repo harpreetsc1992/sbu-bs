@@ -1,7 +1,8 @@
 #include <sys/timer.h>
 #include <sys/kprintf.h>
+#include <sys/pic.h>
 
-uint32_t tick;
+__volatile__ uint32_t tick;
 uint64_t sleep_time;
 
 void
@@ -9,15 +10,17 @@ timer_callback(
 			  )
 {
 	tick++;
-	uint32_t tmp_tick = tick % 100;
-	if (tmp_tick == 0)
-	{
-		uint64_t seconds = tick / 100;
-		uint64_t hours = seconds / 3600;
-		uint64_t minutes = (seconds % (3600)) / 60;
-		uint64_t secs = (seconds % (3600)) % 60;
-		print_timer("Time Elapsed Since Boot: %d:%d:%d ", hours, minutes, secs);
-	}
+	PIC_sendEOI(0);
+//	uint32_t tmp_tick = tick % 100;
+//	if (tmp_tick == 0)
+//	{
+//		uint64_t seconds = tick / 100;
+//		uint64_t hours = seconds / 3600;
+//		uint64_t minutes = (seconds % (3600)) / 60;
+//		uint64_t secs = (seconds % (3600)) % 60;
+//		kprintf("%d:%d:%d ", hours, minutes, secs);
+//		kprintf("%d\t", tick);
+//	}
 }
 
 void
@@ -33,20 +36,19 @@ init_timer(
 	// Divisor has to be sent byte-wise, so split here into upper/lower bytes.
 	uint8_t l = (uint8_t)(divisor & 0xFF);
 	uint8_t h = (uint8_t)(divisor >> 8);
-
 	// Send the frequency divisor.
-	outb(0x40, l);
-	outb(0x40, h);
+	outb(I86_PIT_REG_COUNTER0, l);
+	outb(I86_PIT_REG_COUNTER0, h);
 }
 
 void
 sleep_shell(
-			int secs
+			uint64_t secs
 		   )
 {
-	sleep_time = secs * 100;
-	while(sleep_time != 0)
+	sleep_time = tick + secs;
+	while(secs < sleep_time)
 	{
-		sleep_time--;
+		secs = tick;
 	}
 }

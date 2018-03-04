@@ -19,10 +19,10 @@
 #define BLOCK_BMAP_START_SECTOR 0x12
 #define BLOCK_START_START_SECTOR 0x13
 #define MAGIC_NUM 0x435EFC
-#define MAX_DENTRIES 0x100
-#define MAX_PARENTS 0x28
+#define MAX_DENTRIES 0x10
+#define MAX_PARENTS 0x10
 
-extern uint16_t num_detries;
+extern uint16_t num_dentries;
 extern uint16_t num_inodes;
 
 enum ftype

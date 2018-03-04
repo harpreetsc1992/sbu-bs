@@ -24,4 +24,23 @@
 #define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
 #define ICW4_SFNM	0x10		/* Special fully nested (not) */
 
+void
+init_pic(
+	);
+
+void
+PIC_sendEOI(
+			unsigned char irq
+		   );
+
+void
+IRQ_set_mask(
+             unsigned char IRQline
+            );
+
+void
+IRQ_clear_mask(
+               unsigned char IRQline
+			  );
+
 #endif

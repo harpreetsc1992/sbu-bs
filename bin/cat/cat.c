@@ -13,12 +13,7 @@ main(
 	)
 {
 	char str[32];
-/*	__asm__ __volatile__(
-				"mov %%rbx, %0\t\n"
-				: "=r" (argv[0])
-				);
-*/  strcpy(str, (char *)argv[0]);
-	printf ("%s\n", str);
+	strcpy(str, (char *)argv[0]);
     int len = strlen(str);
     FILE *fd;
     char buf[64];
@@ -30,10 +25,11 @@ main(
     fd = open(str);
 
     bytes_read = read(fd, buf, 256);
+	printf("\n");
     while (bytes_read-- != 0)
     {
         printf("%c", buf[j++]);
     }
 
-    printf("\n");
+	return 0;
 }

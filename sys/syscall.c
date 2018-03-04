@@ -170,12 +170,24 @@ isr_handler128(
 	{
 		kshutdown();
 	}
-	else if(syscall_no == 20)
+	else if(syscall_no == 20) //putc
 	{
 		val = putc(buf);
 		__asm__ __volatile__(
 				"movq %0, %%rax\t\n"
 				:: "b"(val)
 				);
+	}
+	else if (syscall_no == 21) //kill
+	{
+		kill_process(buf);
+//		__asm__ __volatile__(
+//			"movq %0, %%rax\t\n"
+//			:: "b"(val)
+//			);
+	}
+	else if (syscall_no == 22) //clear
+	{
+		clear_screen();
 	}
 }

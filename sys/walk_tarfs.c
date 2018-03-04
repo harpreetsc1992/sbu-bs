@@ -158,7 +158,6 @@ init_tarfs(
 		{
 			break;
 		}
-	
 		fsz = oct2dec(stoi(tar_var->size));
 		kstrcpy(tarfs_fs[i].name, tar_var->name);
 		
@@ -173,7 +172,6 @@ init_tarfs(
         {
             tarfs_fs[i].index = get_per_indx(tarfs_fs[i].name);
         }
-
 		if (fsz == 0)
 		{
 			tmp = tmp + 512;
@@ -187,5 +185,5 @@ init_tarfs(
  		i++;
 		num_dentries++;
 		num_inodes++;
-	}	
+	}
 }

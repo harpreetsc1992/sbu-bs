@@ -109,11 +109,12 @@ irq0:
 	iretq
 
 irq1:
-	PUSHA
+//	PUSHA
+	cli
 	push $0x0
 	push $0x21
-	call isr_handler
-//	jmp isr_coord
+//	call isr_handler
+	jmp isr_coord
 
 isr_coord:
     PUSHA

@@ -1,4 +1,5 @@
 #include <sys/kb.h>
+#include <sys/pic.h>
 
 unsigned char kbdus[128] =
 {
@@ -121,26 +122,56 @@ unsigned char kbdcaps[128] =
     0,  /* All other keys are undefined */
 };
 
-char buf[128];
-int flag;
+char *kbd_buf;
 uint16_t counter;
 uint64_t* gets_at;
 last_key_pressed lkp;
+int flag;
+__volatile__ int check_nl = 0;
 
 char *
 gets(
 	 char *s
 	)
 {
+	kbd_buf = kmalloc(PAGE_SIZE);
 	char *tmp_buf = s;
-	flag = 1;
-	kprintf("gets");
+
+	if(flag) 
+	{
+		counter = 1;
+		flag = 0;
+	}
 	__asm__ __volatile__(
 			"sti\t\n"
 			);
-	while (flag == 1);
-	kmemcpy((void *)tmp_buf, (void *)buf, counter);
-	counter = 0;
+
+//	while (kbd_buf[counter - 1] != '\n');
+	while (1)
+	{
+		if (check_nl)
+		{
+			kstrcpy((void *)tmp_buf, (void *)kbd_buf);
+			check_nl = 0;
+			break;
+		}
+		
+	}
+//	if (kbd_buf[counter - 1] == '\n')
+//	{
+//		kprintf("Here\n");
+//		counter = 1;
+//	}
+//	kstrcpy((void *)tmp_buf, (void *)kbd_buf);
+//	int len = kstrlen(kbd_buf);
+	while (counter > 0)
+	{
+		kbd_buf[--counter] = '\0';
+	}
+	counter = 1;
+	flag = 1;
+//	if (tmp_buf[len - 2] == '\0')	return s;
+//	else return NULL;
 	return s;
 }
 
@@ -148,10 +179,10 @@ void
 init_kbd(
 		)
 {
-	lkp = NONE;
+	lkp = NO;
 	gets_at = NULL;
-	flag = 0;
 	counter = 0;
+	flag = 1;
 }
 
 /* Handles the keyboard interrupt */
@@ -165,77 +196,82 @@ keyboard_handler(
 	value = 0;
     /* Read from the keyboard's data buffer */
     scancode = inb(0x60);
+	PIC_sendEOI(0);
 
     /* If the top bit of the byte we read from the keyboard is
      * set, that means that a key has just been released 
 	 */
     if (scancode & 0x80)
     {
+		scancode -= 0x80;
 		if ((scancode == 157) || (scancode == 170) || (scancode == 184))
 		{
-			 lkp = NONE;
+			 lkp = NO;
+		}
+	}
+	else
+	{
+		if (scancode == 29)
+		{
+			lkp = CTRL;
+		}
+		else if ((scancode == 42) || (scancode == 54))
+		{
+			lkp = SHIFT;
+		}
+		else if (scancode == 56)
+		{
+			lkp = ALT;
+		}
+		else if (scancode == 58)
+		{
+			lkp = CAPS;
 		}
 		else
 		{
-			if (scancode == 29)
+			switch (lkp) 
 			{
-				lkp = CTRL;
+				case NO:
+					value = kbdus[scancode];
+				break;
+				case CTRL:
+					value = kbdus[scancode];
+				break;
+				case SHIFT:
+					value = kbdshift[scancode];
+				break;
+				case ALT:
+					value = kbdus[scancode];
+				break;
+				case CAPS:
+					value = kbdcaps[scancode];
+				break;
+				default:
+					value = 0;
+				break;
 			}
-			else if ((scancode == 42) || (scancode == 54))
-			{
-				lkp = SHIFT;
-			}
-			else if (scancode == 56)
-			{
-				lkp = ALT;
-			}
-			else if (scancode == 58)
-			{
-				lkp = CAPS;
-			}
-			else
-			{
-				switch (lkp) 
-				{
-					case NONE:
-						value = kbdus[scancode];
-					break;
-					case CTRL:
-						value = kbdus[scancode];
-					break;
-					case SHIFT:
-						value = kbdshift[scancode];
-					break;
-					case ALT:
-						value = kbdus[scancode];
-					break;
-					case CAPS:
-						value = kbdcaps[scancode];
-					break;
-					default:
-						value = 0;
-					break;
-				}
-			}
-			if (flag == 1) 
-			{
+			lkp = NO;
+	
+//			if (flag == 1) 
+//			{
 				if (value == '\n') 
 				{
-					buf[counter++] = '\0';
-					putch(value);
-					flag = 0;
-                }
+					kbd_buf[counter - 1] = '\0';
+					check_nl = 1;
+//					putch(value);
+        		}
 				else if (value == '\b') 
 				{
 					putch(value);
 					counter--;
-                }
+        		}
 				else
 				{
-					buf[counter++] = value;
+					kbd_buf[counter - 1] = value;
 					putch(value);
-                }
-			}
+					counter++;
+        		}
+//			}
 		}
-    }
+	}
 }
