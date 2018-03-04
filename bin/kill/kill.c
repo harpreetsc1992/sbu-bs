@@ -19,6 +19,6 @@ int main(int argc, char **argv, char **envp)
 	int id = stoi(pid);
 
 	kill((uint64_t)id);
-	
+	printf("\n");	
 	return 0;
 }

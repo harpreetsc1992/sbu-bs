@@ -10,17 +10,18 @@ timer_callback(
 			  )
 {
 	tick++;
+//	kprintf("%d ", tick);
 	PIC_sendEOI(0);
-//	uint32_t tmp_tick = tick % 100;
-//	if (tmp_tick == 0)
-//	{
+	uint32_t tmp_tick = tick % 100;
+	if (tmp_tick == 0)
+	{
 //		uint64_t seconds = tick / 100;
 //		uint64_t hours = seconds / 3600;
 //		uint64_t minutes = (seconds % (3600)) / 60;
 //		uint64_t secs = (seconds % (3600)) % 60;
 //		kprintf("%d:%d:%d ", hours, minutes, secs);
 //		kprintf("%d\t", tick);
-//	}
+	}
 }
 
 void
@@ -46,9 +47,14 @@ sleep_shell(
 			uint64_t secs
 		   )
 {
-	sleep_time = tick + secs;
-	while(secs < sleep_time)
+	
+	sleep_time = 0;
+	while(sleep_time < secs)
 	{
-		secs = tick;
+		if((tick % 400) == 0)
+		{
+			sleep_time++;
+		}
 	}
+	kprintf("\n");
 }

@@ -23,7 +23,7 @@ main(
     str[len] = '\0';
 
     fd = open(str);
-
+	if (NULL == fd)	return 0;
     bytes_read = read(fd, buf, 256);
 	printf("\n");
     while (bytes_read-- != 0)

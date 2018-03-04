@@ -161,18 +161,41 @@ openfile(
 		}
 	}
 */
-	char *filename = (file + 4);
-
+	char *filename;
+	if ((file + 4) != NULL)
+	{
+		filename = (file + 4);
+	}
+	else
+	{
+		filename = file;
+	}
 	while (1)
 	{   
 		tar_e = tarfs_fs[i];
-		i++;
+		if (kstrlen(filename) == 0)
+		{
+			if (!kstrncmp(tar_e.name, file, kstrlen(file)))
+			{
+				kstrcpy(fd->filename, file); 
+				i++;
+				fd->inode_num = i - 1;
+				fd->offset = 0;
+				fd->address = tar_e.addr_hdr;
+				return fd;	
+			}
+		}
 		char *n = &tar_e.name[4];
+//		if (!kstrcmp(n, ""))
+//		{
+//			i++;
+//			continue;
+//		}
 		if (0 == kstrlen(tar_e.name))
 		{
 			break;
 		}
-
+		
 		if (0 == kstrcmp(n, filename))// && (tar_e.typeflag == FILE_TYPE))
         {   
 			kstrcpy(fd->filename, file); 
@@ -180,11 +203,11 @@ openfile(
 			fd->offset = 0;
 			fd->address = tar_e.addr_hdr;
 			return fd;
-        } 
+        }
+		i++;
 	}
 
 	kprintf("\n No such file \n");
-	kprintf("%s\n", filename);
 
 	return NULL;
 }
