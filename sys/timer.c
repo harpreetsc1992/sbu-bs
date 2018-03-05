@@ -3,7 +3,7 @@
 #include <sys/pic.h>
 
 __volatile__ uint32_t tick;
-uint64_t sleep_time;
+//uint64_t sleep_time = 0;
 
 void
 timer_callback(
@@ -21,6 +21,7 @@ timer_callback(
 //		uint64_t secs = (seconds % (3600)) % 60;
 //		kprintf("%d:%d:%d ", hours, minutes, secs);
 //		kprintf("%d\t", tick);
+//		sleep_time++;
 	}
 }
 
@@ -48,10 +49,10 @@ sleep_shell(
 		   )
 {
 	
-	sleep_time = 0;
+	uint64_t sleep_time = 0;
 	while(sleep_time < secs)
 	{
-		if((tick % 400) == 0)
+		if((tick % 800) == 0)
 		{
 			sleep_time++;
 		}
