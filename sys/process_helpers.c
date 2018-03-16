@@ -1,6 +1,6 @@
 #include <sys/process.h>
 
-uint16_t proc_count_in_list, idx_pcb;
+uint16_t proc_count_in_list = 0, idx_pcb = 0;
 
 void
 move_to_end(
@@ -74,7 +74,8 @@ move_to_next_pcb(
     {
         ready_queue[idx_pcb] = ready_queue[idx_pcb + 1];
 		idx_pcb++;
-		curr_upcb = &ready_queue[idx_pcb];
+		while (ready_queue[idx_pcb].state != READY) idx_pcb++;
+		if (ready_queue[idx_pcb].pid != 0)	curr_upcb = &ready_queue[idx_pcb];
 #ifndef SCHEDULE_POLICY
     process_count--;
 #endif

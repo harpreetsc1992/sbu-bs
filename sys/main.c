@@ -15,6 +15,7 @@
 #define INITIAL_STACK_SIZE 4096
 #define VIDEO_MEM 0xB8000
 
+uint16_t boot_done;
 uint8_t initial_stack[INITIAL_STACK_SIZE]__attribute__((aligned(16)));
 uint32_t* loader_stack;
 extern char kernmem, physbase;
@@ -69,6 +70,7 @@ void boot(void)
 			);
 
   set_up_idt();
+	boot_done = 1;
 	init_pic();
 	init_timer();
   init_tarfs();

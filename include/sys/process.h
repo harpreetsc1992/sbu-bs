@@ -9,7 +9,7 @@
 #define USR_STACK_SZ 512
 #define STACK_SIZE 256 
 #define SCHEDULE_POLICY RR
-#define NUM_PROCS 256
+#define NUM_PROCS 64
 #define NUM_PCB 32
 
 #define PML_SAME_CTXT 0x0
@@ -23,11 +23,12 @@ extern uint64_t zombies[NUM_PROCS];
 extern char curr_file[NAMEMAX];
 extern struct task_struct *global_child;
 extern uint64_t pml_same_ctxt; 
+extern uint16_t boot_done;
+
 /*
  * index for current user pcb for ready_queue
  */
 extern uint16_t idx_pcb;
-
 struct PCB *processes;
 extern uint32_t child_pid;
 
@@ -134,6 +135,10 @@ void
 dispatch(
 		);
 
+void 
+usr_schedule(
+			);
+
 struct task_struct *
 init_usr_pcb(
          	 char *file_name
@@ -178,6 +183,10 @@ schedule(
 void
 yield(
      );
+
+void
+user_yield(
+		  );
 
 struct vm_area_struct *
 malloc_vma(

@@ -33,6 +33,7 @@
 .endm
 
 .globl dispatch
+.globl usr_dispatch
 
 dispatch:
 	pushal
@@ -50,3 +51,4 @@ dispatch:
 //	popal
   	ret
 .end
+

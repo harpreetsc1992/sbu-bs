@@ -18,6 +18,7 @@ enter_usermode(
 	{
 		clear_screen();
 		first_boot = 0;
+		kprintf("sbush> ");
 	}
     jmp_usrmode(user_entry, stack);
 }

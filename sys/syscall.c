@@ -47,15 +47,21 @@ isr_handler128(
 	else if (syscall_no == 4) // fork
 	{
 		val = fork_process();
-		__asm__ __volatile__(
+		if (tick % 120 != 0)
+		{
+			__asm__ __volatile__(
 				"movq $0, %%rax\t\n" // load fork child id as return value
 				:: "r" (val)
 				);
-/*		__asm__ __volatile__(
+		}
+		else 
+		{
+		__asm__ __volatile__(
 				"movq %0, %%rax\t\n" // load fork child id as return value
 				:: "r" (val)
 				);
-*/	}
+		}
+	}
 	else if (syscall_no == 5)  // exit
 	{
 		exit_process(buf);

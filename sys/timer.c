@@ -1,6 +1,7 @@
 #include <sys/timer.h>
 #include <sys/kprintf.h>
 #include <sys/pic.h>
+#include <sys/process.h>
 
 __volatile__ uint32_t tick;
 //uint64_t sleep_time = 0;
@@ -9,9 +10,12 @@ void
 timer_callback(
 			  )
 {
-	tick++;
-//	kprintf("%d ", tick);
 	PIC_sendEOI(0);
+	tick++;
+	if ((tick % 160) == 0 && boot_done && process_count > 1)
+	{
+		usr_schedule();	
+	}
 	uint32_t tmp_tick = tick % 100;
 	if (tmp_tick == 0)
 	{
@@ -33,7 +37,7 @@ init_timer(
 	uint64_t mh_freq = MH_FREQ;
 	uint16_t divisor = mh_freq/frequency;
 	// Send the command byte.
-	outb(0x43, 0x36);
+	outb(I86_PIT_REG_COMMAND, 0x36);
 
 	// Divisor has to be sent byte-wise, so split here into upper/lower bytes.
 	uint8_t l = (uint8_t)(divisor & 0xFF);
@@ -48,14 +52,18 @@ sleep_shell(
 			uint64_t secs
 		   )
 {
-	
-	uint64_t sleep_time = 0;
-	while(sleep_time < secs)
+//	uint64_t sleep_time = tick;
+	uint64_t tmp_tick = tick % 100; 
+	if(tmp_tick == 0)
 	{
-		if((tick % 800) == 0)
+		while (tmp_tick <= secs)
 		{
-			sleep_time++;
+			tmp_tick++;
 		}
+//		if((tick % 1000) == 0)
+//		{
+//			tmp_tick++;
+//		}
 	}
 	kprintf("\n");
 }

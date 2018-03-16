@@ -250,6 +250,27 @@ execute_command(
 	    printf("ls, cat, echo, sleep, ps, kill, clear\n");
 	}
 
+	else if ((strncmp(cmd, "test", 4)) == 0)
+	{
+		int pid = fork();
+		if (pid != 0)
+		{
+        	if (bg_flag != '&') 
+			{
+            	waitpid(pid, 0);
+        	}
+			else 
+			{
+				printf("Background Process\n");
+            	return;
+        	}
+    	} 
+		else 
+		{
+        	execvpe("bin/test", NULL, NULL);
+        	exit(1);
+		}
+	}
 	else
 	{
 		printf("\nCommand not found.");
@@ -264,7 +285,7 @@ int main(int argc, char *argv[], char *envp[])
 	while ((strncmp(input, "exit", 4)) != 0)
 	{
 		int i = 0;
-		printf("sbush> ");
+		//printf("sbush> ");
 		bytes = read(STDIN, (char *) input, 0);
 		
 		if (input[0] == '\n' || input[0] == ' ' || input[0] == '\0' || bytes == 0) continue;	
